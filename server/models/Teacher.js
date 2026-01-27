@@ -6,6 +6,10 @@ const teacherSchema = new mongoose.Schema({
     required: true,
   },
   email: String,
+  password: {
+    type: String,
+    required: true,
+  },
 });
 
 module.exports = mongoose.model("Teacher", teacherSchema);
