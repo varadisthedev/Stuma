@@ -1,22 +1,47 @@
 const express = require("express");
-const Attendance = require("../models/Attendance");
+const controller = require("../controllers/attendance.controller");
 const auth = require("../middleware/auth.middleware");
+const {
+  markAttendanceValidation,
+  classIdParamValidation,
+  attendanceIdParamValidation,
+} = require("../validators/attendance.validator");
 
 const router = express.Router();
 
 // Mark attendance
-router.post("/", auth, async (req, res) => {
-  const attendance = await Attendance.create(req.body);
-  res.json(attendance);
-});
+router.post("/", auth, markAttendanceValidation, controller.markAttendance);
 
-// Get attendance of a class
-router.get("/:classId", auth, async (req, res) => {
-  const records = await Attendance.find({
-    class: req.params.classId,
-  }).populate("records.student");
+// Get attendance records for a specific class
+router.get(
+  "/class/:classId",
+  auth,
+  classIdParamValidation,
+  controller.getAttendanceByClass
+);
 
-  res.json(records);
-});
+// Get analytics for a specific class
+router.get(
+  "/analytics/:classId",
+  auth,
+  classIdParamValidation,
+  controller.attendanceAnalytics
+);
+
+// Get chart data for a specific attendance record
+router.get(
+  "/chart/:attendanceId",
+  auth,
+  attendanceIdParamValidation,
+  controller.attendanceChartData
+);
+
+// Get AI insights prompt for a specific class
+router.get(
+  "/ai-insights/:classId",
+  auth,
+  classIdParamValidation,
+  controller.getAIInsightsPrompt
+);
 
 module.exports = router;

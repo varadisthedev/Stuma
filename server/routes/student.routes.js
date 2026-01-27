@@ -1,23 +1,14 @@
 const express = require("express");
-const Student = require("../models/Student");
+const controller = require("../controllers/student.controller");
 const auth = require("../middleware/auth.middleware");
+const { addStudentValidation } = require("../validators/student.validator");
 
 const router = express.Router();
 
 // Add student
-router.post("/", auth, async (req, res) => {
-  const student = await Student.create({
-    ...req.body,
-    teacher: req.teacherId,
-  });
+router.post("/", auth, addStudentValidation, controller.addStudent);
 
-  res.json(student);
-});
-
-// Get all students
-router.get("/", auth, async (req, res) => {
-  const students = await Student.find({ teacher: req.teacherId });
-  res.json(students);
-});
+// Get all students for the teacher
+router.get("/", auth, controller.getStudents);
 
 module.exports = router;
