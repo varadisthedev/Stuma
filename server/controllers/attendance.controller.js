@@ -1,3 +1,4 @@
+const axios = require("axios");
 const Attendance = require("../models/Attendance");
 const Student = require("../models/Student");
 const Class = require("../models/Class");
@@ -303,6 +304,14 @@ exports.getAIInsightsPrompt = async (req, res) => {
     const over75 = stats.filter((s) => s.percent >= 75 && s.percent < 100);
     const critical = stats.filter((s) => s.percent < 75);
 
+    // Limit critical students in prompt to avoid huge token usage (show worst 15)
+    const criticalForPrompt = critical
+      .sort((a, b) => a.percent - b.percent)
+      .slice(0, 15);
+    const criticalListText = criticalForPrompt.length > 0
+      ? `Top ${criticalForPrompt.length} Critical Students (showing worst cases): ${criticalForPrompt.map((s) => `${s.name} (${s.percent}%)`).join(", ")}${critical.length > 15 ? ` ... and ${critical.length - 15} more` : ""}`
+      : "";
+
     const prompt = `
 You are an education analyst reviewing attendance data for a class.
 
@@ -315,7 +324,7 @@ Attendance Breakdown:
 - Above 75% attendance: ${over75.length} students
 - Critical (<75% attendance): ${critical.length} students
 
-${critical.length > 0 ? `Critical Students: ${critical.map((s) => `${s.name} (${s.percent}%)`).join(", ")}` : ""}
+${criticalListText}
 
 Please provide:
 1. Overall classroom attendance health
@@ -325,15 +334,96 @@ Please provide:
 Keep response concise and professional.
     `.trim();
 
-    res.json({
-      success: true,
-      prompt,
-      data: {
-        perfect,
-        over75,
-        critical,
-      },
-    });
+    // Check if Gemini API key is configured
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn("[AI] No Gemini API key found in server environment");
+      return res.json({
+        success: false,
+        message: "Gemini API key not configured. Add GEMINI_API_KEY to your server .env file.",
+        prompt,
+        data: {
+          perfect,
+          over75,
+          critical,
+        },
+      });
+    }
+
+    // Call Gemini API
+    try {
+      console.log("[AI] Sending prompt to Gemini API");
+      const geminiResponse = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          contents: [
+            {
+              parts: [{ text: prompt }],
+            },
+          ],
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const aiText = geminiResponse.data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (aiText) {
+        console.log("[AI] Gemini response received successfully");
+        return res.json({
+          success: true,
+          text: aiText,
+          data: {
+            perfect,
+            over75,
+            critical,
+          },
+        });
+      } else {
+        console.error("[AI] Unexpected Gemini response format:", geminiResponse.data);
+        return res.json({
+          success: false,
+          message: "Unexpected response format from Gemini",
+          prompt,
+          data: {
+            perfect,
+            over75,
+            critical,
+          },
+        });
+      }
+    } catch (geminiError) {
+      console.error("[AI] Gemini API error:", geminiError.response?.data || geminiError.message);
+
+      let message = "Failed to get AI insights";
+      if (geminiError.response?.status === 400) {
+        message = "Invalid request to Gemini API. Please check your API key.";
+      } else if (geminiError.response?.status === 403) {
+        message = "API key is invalid or has been revoked.";
+      } else if (geminiError.response?.status === 429) {
+        message = "API quota exceeded. Please try again later.";
+      } else if (geminiError.response?.status === 500) {
+        message = "Gemini service temporarily unavailable. Please try again.";
+      } else if (geminiError.response?.data?.error?.message) {
+        message = geminiError.response.data.error.message;
+      } else if (geminiError.code === "ENOTFOUND" || geminiError.code === "ECONNREFUSED") {
+        message = "Network error. Please check server internet connection.";
+      }
+
+      return res.json({
+        success: false,
+        message,
+        prompt,
+        data: {
+          perfect,
+          over75,
+          critical,
+        },
+      });
+    }
   } catch (err) {
     console.error("AI insights error:", err);
     res.status(500).json({
@@ -343,3 +433,4 @@ Keep response concise and professional.
     });
   }
 };
+
