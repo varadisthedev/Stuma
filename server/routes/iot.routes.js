@@ -36,6 +36,9 @@ router.post("/skip", auth, controller.skipStudent);
 // Note: In production, you might want to add device-level authentication
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Auto-discover active session (ESP32 calls this on boot)
+router.get("/active-session", controller.getActiveSession);
+
 // Get current student for attendance (ESP32 calls this)
 router.get("/current/:sessionId", controller.getCurrentStudent);
 

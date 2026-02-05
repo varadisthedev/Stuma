@@ -32,6 +32,68 @@ const generateSessionId = () => {
 };
 
 /**
+ * Get Active Session for ESP32 Auto-Discovery
+ * GET /api/iot/active-session
+ * 
+ * NO AUTH REQUIRED - ESP32 calls this on boot to discover active session
+ * 
+ * This allows ESP32 devices to automatically find and connect to 
+ * the current IoT attendance session without hardcoding sessionId.
+ * 
+ * Returns:
+ * - status: "active" | "none"
+ * - sessionId: string | null
+ */
+exports.getActiveSession = async (req, res) => {
+    try {
+        console.log("[IOT] ESP32 requesting active session discovery");
+
+        // Find the most recently created active session
+        // (In case multiple sessions exist, prioritize the newest one)
+        let activeSession = null;
+        let latestCreatedAt = null;
+
+        for (const [sessionId, session] of activeSessions) {
+            if (session.active) {
+                // Pick the most recently started session
+                if (!latestCreatedAt || session.createdAt > latestCreatedAt) {
+                    activeSession = session;
+                    latestCreatedAt = session.createdAt;
+                }
+            }
+        }
+
+        // Case: No active session found
+        if (!activeSession) {
+            console.log("[IOT] No active session found for ESP32");
+            return res.json({
+                success: true,
+                status: "none",
+                sessionId: null,
+            });
+        }
+
+        // Case: Active session found - return sessionId only (no student data)
+        console.log("[IOT] Found active session for ESP32:", activeSession.sessionId);
+        return res.json({
+            success: true,
+            status: "active",
+            sessionId: activeSession.sessionId,
+        });
+
+    } catch (err) {
+        console.error("[IOT] Get active session error:", err);
+        res.status(500).json({
+            success: false,
+            status: "error",
+            sessionId: null,
+            message: "Server error",
+            error: err.message,
+        });
+    }
+};
+
+/**
  * Start IoT attendance session
  * POST /api/iot/session/start
  * 
