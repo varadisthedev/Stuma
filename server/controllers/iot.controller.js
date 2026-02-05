@@ -302,11 +302,16 @@ exports.getCurrentStudent = async (req, res) => {
         const { sessionId } = req.params;
 
         console.log("[IOT] ESP32 polling for session:", sessionId);
+        console.log("[IOT] Sessions in memory:", activeSessions.size);
+
+        // Debug: List all session IDs
+        console.log("[IOT] Available sessions:", [...activeSessions.keys()]);
 
         const session = activeSessions.get(sessionId);
 
         // Case: Session not found
         if (!session) {
+            console.log("[IOT] ⚠️ Session NOT FOUND in memory!");
             return res.json({
                 success: false,
                 status: "no_session",
