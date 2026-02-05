@@ -313,7 +313,17 @@ export const iotAPI = {
     },
 
     /**
-     * Skip current student (mark as absent)
+     * Assign next student to ESP32 (sets hasStudent=true)
+     * @param {string} sessionId 
+     */
+    nextStudent: async (sessionId) => {
+        console.log('[IOT] Assigning next student in session:', sessionId);
+        const response = await api.post('/api/iot/next', { sessionId });
+        return response.data;
+    },
+
+    /**
+     * Skip current student (mark as absent, clears hasStudent)
      * @param {string} sessionId 
      */
     skipStudent: async (sessionId) => {

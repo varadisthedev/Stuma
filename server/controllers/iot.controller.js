@@ -2,6 +2,17 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * IoT Attendance Controller
  * Handles ESP32/IoT device attendance marking
+ * 
+ * STATE MACHINE:
+ * - Session lifecycle: active | ended | no_session
+ * - Student availability: hasStudent (true = student ready for ESP32)
+ * 
+ * FLOW:
+ * 1. Admin starts session → active=true, hasStudent=false
+ * 2. Admin clicks "Next Student" → hasStudent=true (ESP32 sees student)
+ * 3. ESP32 marks attendance → hasStudent=false, currentIndex++ (waits)
+ * 4. Admin clicks "Next Student" → hasStudent=true (repeat)
+ * 5. All students done → status="done"
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -10,7 +21,7 @@ const Student = require("../models/Student");
 const Class = require("../models/Class");
 
 // In-memory session storage (for simplicity - could use Redis in production)
-// Structure: { sessionId: { classId, date, teacherId, students: [], currentIndex, active, records: {} } }
+// Structure: { sessionId: { ..., hasStudent: boolean, ... } }
 const activeSessions = new Map();
 
 /**
@@ -23,6 +34,8 @@ const generateSessionId = () => {
 /**
  * Start IoT attendance session
  * POST /api/iot/session/start
+ * 
+ * Creates session with hasStudent=false (admin must click "Next" to assign first student)
  */
 exports.startSession = async (req, res) => {
     try {
@@ -79,7 +92,8 @@ exports.startSession = async (req, res) => {
             }
         }
 
-        // Create session
+        // Create session with hasStudent=false initially
+        // Admin must click "Next Student" to assign first student to ESP32
         const sessionId = generateSessionId();
         const session = {
             sessionId,
@@ -94,20 +108,22 @@ exports.startSession = async (req, res) => {
             })),
             currentIndex: 0,
             active: true,
-            records: {}, // { studentId: 'present' | 'absent' }
+            hasStudent: false,  // 🔑 KEY: No student assigned yet, ESP32 will wait
+            records: {},        // { studentId: 'present' | 'absent' }
             createdAt: new Date(),
         };
 
         activeSessions.set(sessionId, session);
 
-        console.log("[IOT] Session created:", sessionId, "with", students.length, "students");
+        console.log("[IOT] Session created:", sessionId, "with", students.length, "students", "hasStudent:", session.hasStudent);
 
         res.json({
             success: true,
-            message: "IoT attendance session started",
+            message: "IoT attendance session started. Click 'Next Student' to begin.",
             sessionId,
             totalStudents: students.length,
-            currentStudent: session.students[0],
+            hasStudent: false,  // Inform frontend no student assigned yet
+            // Don't send currentStudent here - admin must explicitly assign
         });
     } catch (err) {
         console.error("[IOT] Start session error:", err);
@@ -146,8 +162,9 @@ exports.stopSession = async (req, res) => {
             });
         }
 
-        // Mark session as inactive
+        // Mark session as inactive (ESP32 will see status: "ended")
         session.active = false;
+        session.hasStudent = false;  // Clear any pending student
 
         // Build attendance records
         const records = session.students.map((student) => ({
@@ -202,40 +219,50 @@ exports.stopSession = async (req, res) => {
 };
 
 /**
- * Get current student for IoT device
+ * Get current student for IoT device (ESP32 polling endpoint)
  * GET /api/iot/current/:sessionId
  * 
- * This is the endpoint ESP32 calls to get the current student
+ * NO AUTH REQUIRED - ESP32 calls this directly
+ * 
+ * Response contract:
+ * - status: "active" | "ended" | "done" | "no_session"
+ * - hasStudent: true | false (only when status="active")
+ * - Student fields ONLY when hasStudent=true
  */
 exports.getCurrentStudent = async (req, res) => {
     try {
         const { sessionId } = req.params;
 
-        console.log("[IOT] Getting current student for session:", sessionId);
+        console.log("[IOT] ESP32 polling for session:", sessionId);
 
         const session = activeSessions.get(sessionId);
 
+        // Case: Session not found
         if (!session) {
             return res.json({
                 success: false,
                 status: "no_session",
+                hasStudent: false,
                 message: "Session not found or ended",
             });
         }
 
+        // Case: Session ended (admin clicked stop)
         if (!session.active) {
             return res.json({
-                success: false,
-                status: "session_inactive",
-                message: "Session is no longer active",
+                success: true,
+                status: "ended",
+                hasStudent: false,
+                message: "Session has ended",
             });
         }
 
-        // Check if we've gone through all students
+        // Case: All students processed
         if (session.currentIndex >= session.students.length) {
             return res.json({
                 success: true,
                 status: "done",
+                hasStudent: false,
                 message: "All students have been processed",
                 summary: {
                     total: session.students.length,
@@ -245,11 +272,27 @@ exports.getCurrentStudent = async (req, res) => {
             });
         }
 
+        // Case: Session active but NO student assigned (waiting for admin)
+        // ESP32 should poll again after delay
+        if (!session.hasStudent) {
+            console.log("[IOT] Session active, waiting for admin to assign student");
+            return res.json({
+                success: true,
+                status: "active",
+                hasStudent: false,
+                // 🔑 No student fields - ESP32 should wait and retry
+            });
+        }
+
+        // Case: Session active AND student is ready for ESP32
         const currentStudent = session.students[session.currentIndex];
+        console.log("[IOT] Serving student to ESP32:", currentStudent.name);
 
         res.json({
             success: true,
             status: "active",
+            hasStudent: true,
+            // Student fields included only when hasStudent=true
             name: currentStudent.name,
             roll: currentStudent.rollNo,
             section: currentStudent.section,
@@ -261,6 +304,8 @@ exports.getCurrentStudent = async (req, res) => {
         console.error("[IOT] Get current student error:", err);
         res.status(500).json({
             success: false,
+            status: "error",
+            hasStudent: false,
             message: "Server error",
             error: err.message,
         });
@@ -268,16 +313,22 @@ exports.getCurrentStudent = async (req, res) => {
 };
 
 /**
- * Mark attendance from IoT device
+ * Mark attendance from IoT device (ESP32 calls this)
  * POST /api/iot/mark
  * 
- * This is the endpoint ESP32 calls to mark attendance
+ * NO AUTH REQUIRED - ESP32 calls this directly
+ * 
+ * After marking:
+ * - Records the attendance
+ * - Sets hasStudent=false (ESP32 will wait)
+ * - Advances currentIndex
+ * - Session remains active
  */
 exports.markAttendance = async (req, res) => {
     try {
         const { attendanceId, status } = req.body;
 
-        console.log("[IOT] Marking attendance:", attendanceId, "status:", status);
+        console.log("[IOT] ESP32 marking attendance:", attendanceId, "status:", status);
 
         if (!attendanceId || !status) {
             return res.status(400).json({
@@ -319,6 +370,14 @@ exports.markAttendance = async (req, res) => {
             });
         }
 
+        // Verify hasStudent is true (admin assigned this student)
+        if (!session.hasStudent) {
+            return res.status(400).json({
+                success: false,
+                message: "No student currently assigned. Wait for admin.",
+            });
+        }
+
         // Verify the student is the current one
         const currentStudent = session.students[session.currentIndex];
         if (currentStudent._id !== studentId) {
@@ -328,22 +387,26 @@ exports.markAttendance = async (req, res) => {
             });
         }
 
-        // Record the attendance
+        // ═══════════════════════════════════════════════════════════════════
+        // STATE TRANSITION: Mark attendance and clear student
+        // ═══════════════════════════════════════════════════════════════════
+
+        // 1. Record the attendance
         session.records[studentId] = status;
 
-        // Move to next student
+        // 2. Move to next student index
         session.currentIndex++;
 
+        // 3. 🔑 Clear hasStudent - ESP32 must wait for admin to assign next
+        session.hasStudent = false;
+
         console.log(
-            "[IOT] Marked",
-            currentStudent.name,
-            "as",
-            status,
-            "- Moving to index",
-            session.currentIndex
+            "[IOT] Marked", currentStudent.name, "as", status,
+            "| Next index:", session.currentIndex,
+            "| hasStudent: false (waiting for admin)"
         );
 
-        // Check if we're done
+        // Check if we're done (all students processed)
         const isDone = session.currentIndex >= session.students.length;
 
         if (isDone) {
@@ -351,6 +414,7 @@ exports.markAttendance = async (req, res) => {
                 success: true,
                 message: `Marked ${currentStudent.name} as ${status}`,
                 status: "done",
+                hasStudent: false,
                 summary: {
                     total: session.students.length,
                     present: Object.values(session.records).filter((s) => s === "present").length,
@@ -359,21 +423,14 @@ exports.markAttendance = async (req, res) => {
             });
         }
 
-        // Return next student info
-        const nextStudent = session.students[session.currentIndex];
-
+        // Session continues, but ESP32 must wait for admin to assign next student
         res.json({
             success: true,
-            message: `Marked ${currentStudent.name} as ${status}`,
-            status: "next",
-            next: {
-                name: nextStudent.name,
-                roll: nextStudent.rollNo,
-                section: nextStudent.section,
-                attendanceId: `${sessionId}:${nextStudent._id}`,
-                position: session.currentIndex + 1,
-                total: session.students.length,
-            },
+            message: `Marked ${currentStudent.name} as ${status}. Waiting for next student.`,
+            status: "waiting",
+            hasStudent: false,  // 🔑 ESP32 knows to wait
+            position: session.currentIndex + 1,
+            total: session.students.length,
         });
     } catch (err) {
         console.error("[IOT] Mark attendance error:", err);
@@ -386,7 +443,92 @@ exports.markAttendance = async (req, res) => {
 };
 
 /**
- * Get session status
+ * Assign next student to ESP32 (Admin clicks "Next Student")
+ * POST /api/iot/next
+ * 
+ * Sets hasStudent=true so ESP32 can see the student
+ */
+exports.nextStudent = async (req, res) => {
+    try {
+        const { sessionId } = req.body;
+        const teacherId = req.teacherId;
+
+        console.log("[IOT] Admin requesting next student for session:", sessionId);
+
+        const session = activeSessions.get(sessionId);
+
+        if (!session) {
+            return res.status(404).json({
+                success: false,
+                message: "Session not found",
+            });
+        }
+
+        if (session.teacherId !== teacherId) {
+            return res.status(403).json({
+                success: false,
+                message: "Unauthorized",
+            });
+        }
+
+        if (!session.active) {
+            return res.status(400).json({
+                success: false,
+                message: "Session is not active",
+            });
+        }
+
+        // Check if all students are done
+        if (session.currentIndex >= session.students.length) {
+            return res.json({
+                success: true,
+                message: "All students have been processed",
+                isDone: true,
+                hasStudent: false,
+            });
+        }
+
+        // Check if student is already assigned
+        if (session.hasStudent) {
+            const currentStudent = session.students[session.currentIndex];
+            return res.json({
+                success: true,
+                message: "Student already assigned to ESP32",
+                hasStudent: true,
+                currentStudent: currentStudent,
+                position: session.currentIndex + 1,
+                total: session.students.length,
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // STATE TRANSITION: Assign student to ESP32
+        // ═══════════════════════════════════════════════════════════════════
+        session.hasStudent = true;
+        const currentStudent = session.students[session.currentIndex];
+
+        console.log("[IOT] Assigned student to ESP32:", currentStudent.name, "| hasStudent: true");
+
+        res.json({
+            success: true,
+            message: `Student ${currentStudent.name} assigned to ESP32`,
+            hasStudent: true,
+            currentStudent: currentStudent,
+            position: session.currentIndex + 1,
+            total: session.students.length,
+        });
+    } catch (err) {
+        console.error("[IOT] Next student error:", err);
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: err.message,
+        });
+    }
+};
+
+/**
+ * Get session status (Admin polling endpoint)
  * GET /api/iot/session/status/:sessionId
  */
 exports.getSessionStatus = async (req, res) => {
@@ -419,6 +561,7 @@ exports.getSessionStatus = async (req, res) => {
             success: true,
             sessionId,
             active: session.active,
+            hasStudent: session.hasStudent,  // 🔑 Include in status
             classId: session.classId,
             date: session.date,
             totalStudents: session.students.length,
@@ -446,6 +589,8 @@ exports.getSessionStatus = async (req, res) => {
 /**
  * Skip current student (mark as absent and move to next)
  * POST /api/iot/skip
+ * 
+ * Also clears hasStudent (admin must click "Next" again)
  */
 exports.skipStudent = async (req, res) => {
     try {
@@ -483,10 +628,13 @@ exports.skipStudent = async (req, res) => {
         }
 
         const currentStudent = session.students[session.currentIndex];
+
+        // Mark as absent and advance
         session.records[currentStudent._id] = "absent";
         session.currentIndex++;
+        session.hasStudent = false;  // 🔑 Clear - admin must click "Next" again
 
-        console.log("[IOT] Skipped student:", currentStudent.name);
+        console.log("[IOT] Skipped student:", currentStudent.name, "| hasStudent: false");
 
         const isDone = session.currentIndex >= session.students.length;
 
@@ -494,6 +642,7 @@ exports.skipStudent = async (req, res) => {
             success: true,
             message: `Skipped ${currentStudent.name} (marked as absent)`,
             isDone,
+            hasStudent: false,
             nextStudent: isDone ? null : session.students[session.currentIndex],
         });
     } catch (err) {

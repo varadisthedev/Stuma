@@ -281,6 +281,24 @@ export default function AttendancePage() {
   };
 
   /**
+   * Assign next student to ESP32 (sets hasStudent=true)
+   */
+  const handleNextStudent = async () => {
+    if (!iotSession?.sessionId) return;
+
+    try {
+      const response = await iotAPI.nextStudent(iotSession.sessionId);
+      if (response.success) {
+        console.log('[IOT] Assigned student to ESP32:', response.currentStudent?.name);
+        // Status will update on next poll
+      }
+    } catch (err) {
+      console.error('[IOT] Failed to assign next student:', err);
+      setError(err.response?.data?.message || 'Failed to assign next student');
+    }
+  };
+
+  /**
    * Get attendance summary
    */
   const presentCount = Object.values(attendance).filter((s) => s === 'present').length;
@@ -438,10 +456,37 @@ export default function AttendancePage() {
           {/* Current Student Display */}
           {iotStatus && (
             <div style={styles.currentStudentCard}>
-              {iotStatus.currentIndex < iotStatus.totalStudents ? (
+              {iotStatus.currentIndex >= iotStatus.totalStudents ? (
+                /* All students processed */
+                <div style={styles.completedMessage}>
+                  ✅ All students processed!
+                </div>
+              ) : !iotStatus.hasStudent ? (
+                /* Waiting for admin to assign next student */
+                <div style={styles.waitingCard}>
+                  <div style={styles.waitingIcon}>⏳</div>
+                  <div style={styles.waitingText}>
+                    Waiting to assign student to ESP32
+                  </div>
+                  <div style={styles.waitingHint}>
+                    Click "Next Student" to send student #{iotStatus.currentIndex + 1} to ESP32
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleNextStudent}
+                    style={styles.nextStudentButton}
+                  >
+                    ➡️ Next Student
+                  </button>
+                </div>
+              ) : (
+                /* Student assigned to ESP32 (hasStudent=true) */
                 <>
                   <div style={styles.studentPosition}>
                     Student {iotStatus.currentIndex + 1} of {iotStatus.totalStudents}
+                  </div>
+                  <div style={styles.assignedBadge}>
+                    📲 Sent to ESP32
                   </div>
                   <div style={styles.currentStudentName}>
                     {iotStatus.currentStudent?.name}
@@ -458,10 +503,6 @@ export default function AttendancePage() {
                     ⏭ Skip (Mark Absent)
                   </button>
                 </>
-              ) : (
-                <div style={styles.completedMessage}>
-                  ✅ All students processed!
-                </div>
               )}
             </div>
           )}
@@ -759,6 +800,42 @@ const styles = {
   },
   skipButton: {
     marginTop: '0.5rem',
+  },
+  // hasStudent waiting state styles
+  waitingCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '0.75rem',
+    padding: '1rem',
+  },
+  waitingIcon: {
+    fontSize: '2.5rem',
+    opacity: 0.8,
+  },
+  waitingText: {
+    fontSize: '1rem',
+    fontWeight: 600,
+    color: '#6B7280',
+  },
+  waitingHint: {
+    fontSize: '0.875rem',
+    color: '#9CA3AF',
+    marginBottom: '0.5rem',
+  },
+  nextStudentButton: {
+    marginTop: '0.5rem',
+    padding: '0.75rem 1.5rem',
+  },
+  assignedBadge: {
+    display: 'inline-block',
+    padding: '0.25rem 0.75rem',
+    background: 'rgba(34, 197, 94, 0.15)',
+    color: '#16A34A',
+    borderRadius: '1rem',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    marginBottom: '0.5rem',
   },
   completedMessage: {
     fontSize: '1.25rem',

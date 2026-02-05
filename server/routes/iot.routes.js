@@ -25,7 +25,10 @@ router.post("/session/stop", auth, controller.stopSession);
 // Get session status
 router.get("/session/status/:sessionId", auth, controller.getSessionStatus);
 
-// Skip current student
+// Assign next student to ESP32 (sets hasStudent=true)
+router.post("/next", auth, controller.nextStudent);
+
+// Skip current student (marks absent, clears hasStudent)
 router.post("/skip", auth, controller.skipStudent);
 
 // ═══════════════════════════════════════════════════════════════════════════
