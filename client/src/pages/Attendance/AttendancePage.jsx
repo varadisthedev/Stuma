@@ -37,6 +37,10 @@ export default function AttendancePage() {
   const [iotSession, setIotSession] = useState(null); // { sessionId, totalStudents, currentStudent, ... }
   const [iotStatus, setIotStatus] = useState(null);
   const pollIntervalRef = useRef(null);
+  
+  // Auto-Next Mode: Automatically send next student to ESP32 every 6 seconds
+  const [autoNextEnabled, setAutoNextEnabled] = useState(false);
+  const autoNextIntervalRef = useRef(null);
 
   /**
    * Load data on mount
@@ -47,6 +51,9 @@ export default function AttendancePage() {
       // Cleanup polling on unmount
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
+      }
+      if (autoNextIntervalRef.current) {
+        clearInterval(autoNextIntervalRef.current);
       }
     };
   }, []);
@@ -79,6 +86,37 @@ export default function AttendancePage() {
       }
     };
   }, [iotSession?.sessionId, isIoTMode]);
+
+  /**
+   * Auto-Next: Automatically send next student to ESP32 every 6 seconds
+   * Only triggers when:
+   * - autoNextEnabled is true
+   * - Session is active
+   * - hasStudent is false (waiting for next)
+   * - There are still students remaining
+   */
+  useEffect(() => {
+    if (autoNextEnabled && isIoTMode && iotSession?.sessionId) {
+      autoNextIntervalRef.current = setInterval(async () => {
+        // Only auto-assign if hasStudent is false and not done
+        if (iotStatus && !iotStatus.hasStudent && iotStatus.currentIndex < iotStatus.totalStudents) {
+          console.log('[IOT] Auto-Next: Assigning next student...');
+          try {
+            await iotAPI.nextStudent(iotSession.sessionId);
+          } catch (err) {
+            console.error('[IOT] Auto-Next failed:', err);
+          }
+        }
+      }, 6000); // Every 6 seconds
+    }
+
+    return () => {
+      if (autoNextIntervalRef.current) {
+        clearInterval(autoNextIntervalRef.current);
+        autoNextIntervalRef.current = null;
+      }
+    };
+  }, [autoNextEnabled, isIoTMode, iotSession?.sessionId, iotStatus?.hasStudent, iotStatus?.currentIndex, iotStatus?.totalStudents]);
 
   /**
    * Fetch classes and students
@@ -246,6 +284,7 @@ export default function AttendancePage() {
         setIotSession(null);
         setIotStatus(null);
         setIsIoTMode(false);
+        setAutoNextEnabled(false); // Reset auto-next on session end
 
         if (saveProgress && response.attendanceId) {
           // Redirect to analytics
@@ -451,6 +490,28 @@ export default function AttendancePage() {
             <p style={styles.sessionHint}>
               ESP32 should call: <code>GET /api/iot/current/{iotSession.sessionId}</code>
             </p>
+            
+            {/* Auto-Next Toggle */}
+            <div style={styles.autoNextToggle}>
+              <label style={styles.toggleLabel}>
+                <input
+                  type="checkbox"
+                  checked={autoNextEnabled}
+                  onChange={(e) => setAutoNextEnabled(e.target.checked)}
+                  style={styles.toggleCheckbox}
+                />
+                <span style={styles.toggleSwitch}>
+                  <span style={{
+                    ...styles.toggleSlider,
+                    transform: autoNextEnabled ? 'translateX(20px)' : 'translateX(0)',
+                    background: autoNextEnabled ? '#22C55E' : '#9CA3AF',
+                  }} />
+                </span>
+                <span style={styles.toggleText}>
+                  🔄 Auto-Next {autoNextEnabled ? '(ON - every 6s)' : '(OFF)'}
+                </span>
+              </label>
+            </div>
           </div>
 
           {/* Current Student Display */}
@@ -765,6 +826,44 @@ const styles = {
     margin: 0,
     fontSize: '0.75rem',
     color: '#9CA3AF',
+  },
+  // Auto-Next Toggle Styles
+  autoNextToggle: {
+    marginTop: '1rem',
+    paddingTop: '0.75rem',
+    borderTop: '1px solid rgba(0, 0, 0, 0.1)',
+  },
+  toggleLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    cursor: 'pointer',
+  },
+  toggleCheckbox: {
+    display: 'none', // Hide default checkbox
+  },
+  toggleSwitch: {
+    position: 'relative',
+    width: '44px',
+    height: '24px',
+    background: '#E5E7EB',
+    borderRadius: '12px',
+    transition: 'background 0.2s ease',
+  },
+  toggleSlider: {
+    position: 'absolute',
+    top: '2px',
+    left: '2px',
+    width: '20px',
+    height: '20px',
+    borderRadius: '50%',
+    transition: 'transform 0.2s ease, background 0.2s ease',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+  },
+  toggleText: {
+    fontSize: '0.875rem',
+    fontWeight: 500,
+    color: '#4B5563',
   },
   currentStudentCard: {
     padding: '1.5rem',
