@@ -276,6 +276,54 @@ export const attendanceAPI = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════════
+// IOT ATTENDANCE API
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const iotAPI = {
+    /**
+     * Start IoT attendance session
+     * @param {string} classId 
+     * @param {string} date - ISO date string
+     */
+    startSession: async (classId, date) => {
+        console.log('[IOT] Starting session for class:', classId);
+        const response = await api.post('/api/iot/session/start', { classId, date });
+        return response.data;
+    },
+
+    /**
+     * Stop IoT attendance session
+     * @param {string} sessionId 
+     * @param {boolean} saveProgress - Whether to save the attendance records
+     */
+    stopSession: async (sessionId, saveProgress = true) => {
+        console.log('[IOT] Stopping session:', sessionId);
+        const response = await api.post('/api/iot/session/stop', { sessionId, saveProgress });
+        return response.data;
+    },
+
+    /**
+     * Get session status
+     * @param {string} sessionId 
+     */
+    getSessionStatus: async (sessionId) => {
+        console.log('[IOT] Getting session status:', sessionId);
+        const response = await api.get(`/api/iot/session/status/${sessionId}`);
+        return response.data;
+    },
+
+    /**
+     * Skip current student (mark as absent)
+     * @param {string} sessionId 
+     */
+    skipStudent: async (sessionId) => {
+        console.log('[IOT] Skipping student in session:', sessionId);
+        const response = await api.post('/api/iot/skip', { sessionId });
+        return response.data;
+    },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HEALTH CHECK
 // ═══════════════════════════════════════════════════════════════════════════
 

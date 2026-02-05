@@ -2,12 +2,13 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * Attendance Page
  * Mark attendance for classes - select class, date, and mark students
+ * Supports both manual and IoT device attendance modes
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { classesAPI, studentsAPI, attendanceAPI } from '../../services/api';
+import { classesAPI, studentsAPI, attendanceAPI, iotAPI } from '../../services/api';
 import { formatTime, toISODateString, formatDate } from '../../utils/helpers';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -31,12 +32,53 @@ export default function AttendancePage() {
   const [attendance, setAttendance] = useState({}); // { studentId: 'present' | 'absent' }
   const [selectAllMode, setSelectAllMode] = useState('present');
 
+  // IoT Mode State
+  const [isIoTMode, setIsIoTMode] = useState(false);
+  const [iotSession, setIotSession] = useState(null); // { sessionId, totalStudents, currentStudent, ... }
+  const [iotStatus, setIotStatus] = useState(null);
+  const pollIntervalRef = useRef(null);
+
   /**
    * Load data on mount
    */
   useEffect(() => {
     loadData();
+    return () => {
+      // Cleanup polling on unmount
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
   }, []);
+
+  /**
+   * Poll IoT session status when active
+   */
+  useEffect(() => {
+    if (iotSession?.sessionId && isIoTMode) {
+      // Start polling
+      pollIntervalRef.current = setInterval(async () => {
+        try {
+          const status = await iotAPI.getSessionStatus(iotSession.sessionId);
+          setIotStatus(status);
+          
+          // Check if session completed
+          if (status.currentIndex >= status.totalStudents) {
+            console.log('[IOT] Session completed');
+          }
+        } catch (err) {
+          console.error('[IOT] Failed to poll status:', err);
+        }
+      }, 2000); // Poll every 2 seconds
+    }
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [iotSession?.sessionId, isIoTMode]);
 
   /**
    * Fetch classes and students
@@ -97,7 +139,7 @@ export default function AttendancePage() {
   };
 
   /**
-   * Submit attendance
+   * Submit attendance (Manual Mode)
    */
   const handleSubmit = async () => {
     // Validation
@@ -151,6 +193,91 @@ export default function AttendancePage() {
     }
 
     setIsSubmitting(false);
+  };
+
+  /**
+   * Start IoT attendance session
+   */
+  const handleStartIoTSession = async () => {
+    if (!selectedClassId) {
+      setError('Please select a class first');
+      return;
+    }
+
+    if (!selectedDate) {
+      setError('Please select a date first');
+      return;
+    }
+
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      const response = await iotAPI.startSession(selectedClassId, selectedDate);
+      
+      if (response.success) {
+        setIotSession(response);
+        setIsIoTMode(true);
+        setSuccess('IoT session started! ESP32 can now take attendance.');
+        console.log('[IOT] Session started:', response.sessionId);
+      }
+    } catch (err) {
+      console.error('[IOT] Failed to start session:', err);
+      setError(err.response?.data?.message || 'Failed to start IoT session');
+    }
+
+    setIsSubmitting(false);
+  };
+
+  /**
+   * Stop IoT session and save attendance
+   */
+  const handleStopIoTSession = async (saveProgress = true) => {
+    if (!iotSession?.sessionId) return;
+
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const response = await iotAPI.stopSession(iotSession.sessionId, saveProgress);
+      
+      if (response.success) {
+        setSuccess(saveProgress ? 'Attendance saved successfully!' : 'Session ended without saving.');
+        setIotSession(null);
+        setIotStatus(null);
+        setIsIoTMode(false);
+
+        if (saveProgress && response.attendanceId) {
+          // Redirect to analytics
+          setTimeout(() => {
+            navigate(`/analytics?classId=${selectedClassId}`);
+          }, 1500);
+        }
+      }
+    } catch (err) {
+      console.error('[IOT] Failed to stop session:', err);
+      setError(err.response?.data?.message || 'Failed to stop session');
+    }
+
+    setIsSubmitting(false);
+  };
+
+  /**
+   * Skip current student in IoT mode
+   */
+  const handleSkipStudent = async () => {
+    if (!iotSession?.sessionId) return;
+
+    try {
+      const response = await iotAPI.skipStudent(iotSession.sessionId);
+      if (response.success) {
+        console.log('[IOT] Skipped student');
+        // Status will update on next poll
+      }
+    } catch (err) {
+      console.error('[IOT] Failed to skip student:', err);
+      setError(err.response?.data?.message || 'Failed to skip student');
+    }
   };
 
   /**
@@ -229,6 +356,7 @@ export default function AttendancePage() {
               className="form-select"
               value={selectedClassId}
               onChange={(e) => setSelectedClassId(e.target.value)}
+              disabled={isIoTMode}
             >
               <option value="">-- Choose a class --</option>
               {classes.map((cls) => (
@@ -247,6 +375,7 @@ export default function AttendancePage() {
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               max={toISODateString(new Date())}
+              disabled={isIoTMode}
             />
           </div>
         </div>
@@ -261,87 +390,215 @@ export default function AttendancePage() {
         )}
       </div>
 
-      {/* Attendance Summary */}
-      <div style={styles.summaryBar}>
-        <div style={styles.summaryItem}>
-          <span style={styles.summaryLabel}>Total</span>
-          <span style={styles.summaryValue}>{students.length}</span>
-        </div>
-        <div style={styles.summaryItem}>
-          <span style={{ ...styles.summaryLabel, color: '#22C55E' }}>Present</span>
-          <span style={{ ...styles.summaryValue, color: '#22C55E' }}>{presentCount}</span>
-        </div>
-        <div style={styles.summaryItem}>
-          <span style={{ ...styles.summaryLabel, color: '#EF4444' }}>Absent</span>
-          <span style={{ ...styles.summaryValue, color: '#EF4444' }}>{absentCount}</span>
-        </div>
-        <div style={styles.summaryActions}>
-          <button
-            className={`btn btn-sm ${selectAllMode === 'present' ? 'btn-success' : 'btn-ghost'}`}
-            onClick={() => handleMarkAll('present')}
-          >
-            All Present
-          </button>
-          <button
-            className={`btn btn-sm ${selectAllMode === 'absent' ? 'btn-danger' : 'btn-ghost'}`}
-            onClick={() => handleMarkAll('absent')}
-          >
-            All Absent
-          </button>
-        </div>
-      </div>
-
-      {/* Student List */}
-      <div className="glass-card-static" style={styles.studentList}>
-        {students.map((student, index) => {
-          const isPresent = attendance[student._id] === 'present';
-          return (
-            <div
-              key={student._id}
-              style={{
-                ...styles.studentItem,
-                ...(isPresent ? styles.studentPresent : styles.studentAbsent),
-              }}
-              className="animate-fade-in"
-              onClick={() => toggleAttendance(student._id)}
+      {/* Mode Toggle - IoT Device Option */}
+      {!isIoTMode && (
+        <div className="glass-card-static" style={styles.iotCard}>
+          <div style={styles.iotHeader}>
+            <div style={styles.iotIcon}>📡</div>
+            <div style={styles.iotInfo}>
+              <h3 style={styles.iotTitle}>IoT Device Attendance</h3>
+              <p style={styles.iotDescription}>
+                Use ESP32 device with touch sensor for automated attendance
+              </p>
+            </div>
+            <button
+              className="btn btn-primary"
+              onClick={handleStartIoTSession}
+              disabled={isSubmitting || !selectedClassId}
+              style={styles.iotButton}
             >
-              <div style={styles.studentInfo}>
-                <span className="badge badge-primary" style={styles.rollBadge}>
-                  {student.rollNo}
-                </span>
-                <span style={styles.studentName}>{student.name}</span>
+              {isSubmitting ? 'Starting...' : '🚀 Start IoT Session'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* IoT Session Active Panel */}
+      {isIoTMode && iotSession && (
+        <div className="glass-card-static" style={styles.iotActiveCard}>
+          <div style={styles.iotActiveHeader}>
+            <div style={styles.pulseIndicator}>
+              <span style={styles.pulseCircle}></span>
+              <span style={styles.iotLiveText}>LIVE</span>
+            </div>
+            <h3 style={styles.iotActiveTitle}>IoT Session Active</h3>
+          </div>
+
+          {/* Session Info */}
+          <div style={styles.sessionInfo}>
+            <div style={styles.sessionIdBox}>
+              <span style={styles.sessionLabel}>Session ID:</span>
+              <code style={styles.sessionIdCode}>{iotSession.sessionId}</code>
+            </div>
+            <p style={styles.sessionHint}>
+              ESP32 should call: <code>GET /api/iot/current/{iotSession.sessionId}</code>
+            </p>
+          </div>
+
+          {/* Current Student Display */}
+          {iotStatus && (
+            <div style={styles.currentStudentCard}>
+              {iotStatus.currentIndex < iotStatus.totalStudents ? (
+                <>
+                  <div style={styles.studentPosition}>
+                    Student {iotStatus.currentIndex + 1} of {iotStatus.totalStudents}
+                  </div>
+                  <div style={styles.currentStudentName}>
+                    {iotStatus.currentStudent?.name}
+                  </div>
+                  <div style={styles.currentStudentDetails}>
+                    <span className="badge badge-primary">{iotStatus.currentStudent?.rollNo}</span>
+                    <span style={styles.sectionBadge}>{iotStatus.currentStudent?.section}</span>
+                  </div>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={handleSkipStudent}
+                    style={styles.skipButton}
+                  >
+                    ⏭ Skip (Mark Absent)
+                  </button>
+                </>
+              ) : (
+                <div style={styles.completedMessage}>
+                  ✅ All students processed!
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Progress Bar */}
+          {iotStatus && (
+            <div style={styles.progressSection}>
+              <div style={styles.progressBar}>
+                <div 
+                  style={{
+                    ...styles.progressFill,
+                    width: `${(iotStatus.currentIndex / iotStatus.totalStudents) * 100}%`
+                  }}
+                />
               </div>
-              <div
-                style={{
-                  ...styles.statusToggle,
-                  ...(isPresent ? styles.statusPresent : styles.statusAbsent),
-                }}
-              >
-                {isPresent ? 'Present' : 'Absent'}
+              <div style={styles.progressStats}>
+                <div style={styles.progressStat}>
+                  <span style={{ color: '#22C55E' }}>✓ Present:</span>
+                  <strong>{iotStatus.summary?.present || 0}</strong>
+                </div>
+                <div style={styles.progressStat}>
+                  <span style={{ color: '#EF4444' }}>✗ Absent:</span>
+                  <strong>{iotStatus.summary?.absent || 0}</strong>
+                </div>
+                <div style={styles.progressStat}>
+                  <span style={{ color: '#6B7280' }}>⏳ Pending:</span>
+                  <strong>{iotStatus.summary?.pending || 0}</strong>
+                </div>
               </div>
             </div>
-          );
-        })}
-      </div>
-
-      {/* Submit Button */}
-      <div style={styles.submitSection}>
-        <button
-          className="btn btn-primary btn-lg"
-          onClick={handleSubmit}
-          disabled={isSubmitting || !selectedClassId}
-          style={styles.submitBtn}
-        >
-          {isSubmitting ? (
-            <>
-              <span className="spinner-sm" style={{ borderTopColor: 'white' }}></span>
-              Submitting...
-            </>
-          ) : (
-            `Submit Attendance (${presentCount}P / ${absentCount}A)`
           )}
-        </button>
-      </div>
+
+          {/* Session Controls */}
+          <div style={styles.sessionControls}>
+            <button
+              className="btn btn-success"
+              onClick={() => handleStopIoTSession(true)}
+              disabled={isSubmitting}
+            >
+              ✓ Save & End Session
+            </button>
+            <button
+              className="btn btn-danger"
+              onClick={() => handleStopIoTSession(false)}
+              disabled={isSubmitting}
+            >
+              ✗ Cancel Session
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Mode - Attendance Summary */}
+      {!isIoTMode && (
+        <>
+          <div style={styles.summaryBar}>
+            <div style={styles.summaryItem}>
+              <span style={styles.summaryLabel}>Total</span>
+              <span style={styles.summaryValue}>{students.length}</span>
+            </div>
+            <div style={styles.summaryItem}>
+              <span style={{ ...styles.summaryLabel, color: '#22C55E' }}>Present</span>
+              <span style={{ ...styles.summaryValue, color: '#22C55E' }}>{presentCount}</span>
+            </div>
+            <div style={styles.summaryItem}>
+              <span style={{ ...styles.summaryLabel, color: '#EF4444' }}>Absent</span>
+              <span style={{ ...styles.summaryValue, color: '#EF4444' }}>{absentCount}</span>
+            </div>
+            <div style={styles.summaryActions}>
+              <button
+                className={`btn btn-sm ${selectAllMode === 'present' ? 'btn-success' : 'btn-ghost'}`}
+                onClick={() => handleMarkAll('present')}
+              >
+                All Present
+              </button>
+              <button
+                className={`btn btn-sm ${selectAllMode === 'absent' ? 'btn-danger' : 'btn-ghost'}`}
+                onClick={() => handleMarkAll('absent')}
+              >
+                All Absent
+              </button>
+            </div>
+          </div>
+
+          {/* Student List */}
+          <div className="glass-card-static" style={styles.studentList}>
+            {students.map((student, index) => {
+              const isPresent = attendance[student._id] === 'present';
+              return (
+                <div
+                  key={student._id}
+                  style={{
+                    ...styles.studentItem,
+                    ...(isPresent ? styles.studentPresent : styles.studentAbsent),
+                  }}
+                  className="animate-fade-in"
+                  onClick={() => toggleAttendance(student._id)}
+                >
+                  <div style={styles.studentInfo}>
+                    <span className="badge badge-primary" style={styles.rollBadge}>
+                      {student.rollNo}
+                    </span>
+                    <span style={styles.studentName}>{student.name}</span>
+                  </div>
+                  <div
+                    style={{
+                      ...styles.statusToggle,
+                      ...(isPresent ? styles.statusPresent : styles.statusAbsent),
+                    }}
+                  >
+                    {isPresent ? 'Present' : 'Absent'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Submit Button */}
+          <div style={styles.submitSection}>
+            <button
+              className="btn btn-primary btn-lg"
+              onClick={handleSubmit}
+              disabled={isSubmitting || !selectedClassId}
+              style={styles.submitBtn}
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="spinner-sm" style={{ borderTopColor: 'white' }}></span>
+                  Submitting...
+                </>
+              ) : (
+                `Submit Attendance (${presentCount}P / ${absentCount}A)`
+              )}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -368,6 +625,181 @@ const styles = {
     color: '#6B7280',
     fontSize: '0.875rem',
   },
+  // IoT Card Styles
+  iotCard: {
+    padding: '1.25rem',
+    marginBottom: '1rem',
+    background: 'linear-gradient(135deg, rgba(9, 65, 109, 0.05) 0%, rgba(219, 252, 255, 0.3) 100%)',
+    border: '2px dashed rgba(9, 65, 109, 0.3)',
+  },
+  iotHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    flexWrap: 'wrap',
+  },
+  iotIcon: {
+    fontSize: '2rem',
+  },
+  iotInfo: {
+    flex: 1,
+    minWidth: '200px',
+  },
+  iotTitle: {
+    margin: 0,
+    fontSize: '1.1rem',
+    fontWeight: 600,
+    color: '#09416D',
+  },
+  iotDescription: {
+    margin: '0.25rem 0 0',
+    fontSize: '0.875rem',
+    color: '#6B7280',
+  },
+  iotButton: {
+    whiteSpace: 'nowrap',
+  },
+  // IoT Active Session Styles
+  iotActiveCard: {
+    padding: '1.5rem',
+    marginBottom: '1rem',
+    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(219, 252, 255, 0.4) 100%)',
+    border: '2px solid rgba(34, 197, 94, 0.4)',
+  },
+  iotActiveHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    marginBottom: '1rem',
+  },
+  pulseIndicator: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  pulseCircle: {
+    width: '12px',
+    height: '12px',
+    borderRadius: '50%',
+    background: '#22C55E',
+    animation: 'pulseLive 1.5s ease-in-out infinite',
+  },
+  iotLiveText: {
+    fontSize: '0.75rem',
+    fontWeight: 700,
+    color: '#22C55E',
+    letterSpacing: '0.05em',
+  },
+  iotActiveTitle: {
+    margin: 0,
+    fontSize: '1.1rem',
+    fontWeight: 600,
+    color: '#1F2937',
+  },
+  sessionInfo: {
+    marginBottom: '1rem',
+    padding: '0.75rem',
+    background: 'rgba(255, 255, 255, 0.6)',
+    borderRadius: '0.5rem',
+  },
+  sessionIdBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    marginBottom: '0.5rem',
+  },
+  sessionLabel: {
+    fontSize: '0.875rem',
+    color: '#6B7280',
+  },
+  sessionIdCode: {
+    padding: '0.25rem 0.5rem',
+    background: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: '0.25rem',
+    fontSize: '0.8rem',
+    fontFamily: 'monospace',
+    color: '#09416D',
+  },
+  sessionHint: {
+    margin: 0,
+    fontSize: '0.75rem',
+    color: '#9CA3AF',
+  },
+  currentStudentCard: {
+    padding: '1.5rem',
+    background: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: '0.75rem',
+    textAlign: 'center',
+    marginBottom: '1rem',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+  },
+  studentPosition: {
+    fontSize: '0.875rem',
+    color: '#6B7280',
+    marginBottom: '0.5rem',
+  },
+  currentStudentName: {
+    fontSize: '1.5rem',
+    fontWeight: 700,
+    color: '#1F2937',
+    marginBottom: '0.5rem',
+  },
+  currentStudentDetails: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '0.75rem',
+    marginBottom: '1rem',
+  },
+  sectionBadge: {
+    padding: '0.25rem 0.75rem',
+    background: '#F3F4F6',
+    borderRadius: '0.25rem',
+    fontSize: '0.875rem',
+    color: '#6B7280',
+  },
+  skipButton: {
+    marginTop: '0.5rem',
+  },
+  completedMessage: {
+    fontSize: '1.25rem',
+    fontWeight: 600,
+    color: '#22C55E',
+  },
+  progressSection: {
+    marginBottom: '1rem',
+  },
+  progressBar: {
+    height: '8px',
+    background: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: '4px',
+    overflow: 'hidden',
+    marginBottom: '0.75rem',
+  },
+  progressFill: {
+    height: '100%',
+    background: 'linear-gradient(90deg, #22C55E 0%, #4ADE80 100%)',
+    borderRadius: '4px',
+    transition: 'width 0.3s ease',
+  },
+  progressStats: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '1.5rem',
+    flexWrap: 'wrap',
+  },
+  progressStat: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.375rem',
+    fontSize: '0.875rem',
+  },
+  sessionControls: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '1rem',
+    flexWrap: 'wrap',
+  },
+  // Manual Mode Styles
   summaryBar: {
     display: 'flex',
     alignItems: 'center',
@@ -453,3 +885,4 @@ const styles = {
     minWidth: '280px',
   },
 };
+

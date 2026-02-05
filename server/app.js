@@ -8,6 +8,7 @@ const authRoutes = require("./routes/auth.routes");
 const classRoutes = require("./routes/class.routes");
 const studentRoutes = require("./routes/student.routes");
 const attendanceRoutes = require("./routes/attendance.routes");
+const iotRoutes = require("./routes/iot.routes");
 
 // Middleware
 app.use(cors());
@@ -19,6 +20,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/classes", classRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/attendance", attendanceRoutes);
+app.use("/api/iot", iotRoutes);
 
 // Health check
 app.get("/health", (req, res) => {
