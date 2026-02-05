@@ -47,6 +47,12 @@ const generateSessionId = () => {
 exports.getActiveSession = async (req, res) => {
     try {
         console.log("[IOT] ESP32 requesting active session discovery");
+        console.log("[IOT] Total sessions in memory:", activeSessions.size);
+
+        // Debug: List all sessions
+        for (const [id, sess] of activeSessions) {
+            console.log(`[IOT] Session ${id}: active=${sess.active}`);
+        }
 
         // Find the most recently created active session
         // (In case multiple sessions exist, prioritize the newest one)
