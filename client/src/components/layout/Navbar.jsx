@@ -1,12 +1,13 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * Navbar Component - Ramdeobaba University
- * Main navigation bar with university branding and user info
+ * Main navigation bar with university branding, dark mode toggle, and user info
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import universityLogo from '../../assets/logo.jpg';
 
 const navItems = [
@@ -19,6 +20,7 @@ const navItems = [
 
 export default function Navbar() {
   const { teacher, logout } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
   const location = useLocation();
 
   const handleLogout = () => {
@@ -60,8 +62,18 @@ export default function Navbar() {
         ))}
       </div>
 
-      {/* User Section */}
+      {/* User Section with Dark Mode Toggle */}
       <div style={styles.userSection}>
+        {/* Dark Mode Toggle */}
+        <button 
+          onClick={toggleTheme} 
+          className="theme-toggle"
+          title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          aria-label={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          {isDarkMode ? '☀️' : '🌙'}
+        </button>
+
         <div style={styles.userInfo}>
           <div style={styles.avatar}>
             {teacher?.name?.charAt(0).toUpperCase() || 'T'}

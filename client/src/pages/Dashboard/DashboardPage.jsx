@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { classesAPI, studentsAPI } from '../../services/api';
 import { formatTime, formatDate, getCurrentDay } from '../../utils/helpers';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -17,6 +18,7 @@ import boardBg from '../../assets/homepage/board.jpg';
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { teacher } = useAuth();
+  const { isDarkMode } = useTheme();
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,19 +83,22 @@ export default function DashboardPage() {
   // Timeline slots for empty schedule
   const timelineSlots = ['09:00', '11:00', '14:00', '16:00'];
 
+  // Dynamic styles based on theme
+  const dynamicStyles = getStyles(isDarkMode);
+
   if (isLoading) {
     return <LoadingSpinner message="Loading your dashboard..." />;
   }
 
   return (
-    <div style={styles.container}>
+    <div style={dynamicStyles.container}>
       {/* Decorative SVG Overlays */}
-      <div style={styles.decorativeOverlay}>
-        <svg style={styles.decorSvg1} viewBox="0 0 200 200" fill="none">
+      <div style={dynamicStyles.decorativeOverlay}>
+        <svg style={dynamicStyles.decorSvg1} viewBox="0 0 200 200" fill="none">
           <circle cx="100" cy="100" r="80" stroke="currentColor" strokeWidth="0.5" strokeDasharray="4 4" />
           <circle cx="100" cy="100" r="60" stroke="currentColor" strokeWidth="0.3" strokeDasharray="2 6" />
         </svg>
-        <div style={styles.decorDots}></div>
+        <div style={dynamicStyles.decorDots}></div>
       </div>
 
       {error && <Alert type="error" message={error} />}
@@ -101,77 +106,77 @@ export default function DashboardPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           BLACKBOARD SECTION - Teacher Profile on the Board
           ═══════════════════════════════════════════════════════════════════ */}
-      <div style={styles.blackboardSection}>
+      <div style={dynamicStyles.blackboardSection}>
         {/* Blackboard Background */}
-        <div style={styles.blackboardBg}></div>
+        <div style={dynamicStyles.blackboardBg}></div>
         
         {/* Content written on the board */}
-        <div style={styles.blackboardContent}>
+        <div style={dynamicStyles.blackboardContent}>
           {/* Left side - Faculty Photo (outside the board, like standing next to it) */}
-          <div style={styles.teacherPhotoWrapper}>
+          <div style={dynamicStyles.teacherPhotoWrapper}>
             <img 
               src={getTeacherImage(teacher?.name)}
               alt={teacher?.name || 'Faculty'}
-              style={styles.teacherPhoto}
+              style={dynamicStyles.teacherPhoto}
               onError={(e) => {
                 e.target.style.display = 'none';
                 e.target.nextSibling.style.display = 'flex';
               }}
             />
-            <div style={{...styles.teacherPhotoFallback, display: 'none'}}>
+            <div style={{...dynamicStyles.teacherPhotoFallback, display: 'none'}}>
               {teacher?.name?.charAt(0) || 'T'}
             </div>
           </div>
 
           {/* Right side - Chalk-style info on the board */}
-          <div style={styles.chalkContent}>
+          <div style={dynamicStyles.chalkContent}>
             {/* Greeting - handwritten style */}
-            <p style={styles.chalkGreeting}>Good {getTimeOfDay()}!</p>
+            <p style={dynamicStyles.chalkGreeting}>Good {getTimeOfDay()}!</p>
             
             {/* Teacher Name - Large chalk text */}
-            <h1 style={styles.chalkName}>{teacher?.name || 'Teacher'}</h1>
+            <h1 style={dynamicStyles.chalkName}>{teacher?.name || 'Teacher'}</h1>
             
             {/* Chalk underline */}
-            <div style={styles.chalkUnderline}></div>
+            <div style={dynamicStyles.chalkUnderline}></div>
             
             {/* Role & Email */}
-            <p style={styles.chalkRole}>
+            <p style={dynamicStyles.chalkRole}>
               ✦ Faculty Member
             </p>
-            <p style={styles.chalkEmail}>{teacher?.email || ''}</p>
+            <p style={dynamicStyles.chalkEmail}>{teacher?.email || ''}</p>
 
             {/* Stats written on board */}
-            <div style={styles.chalkStats}>
-              <div style={styles.chalkStatItem}>
-                <span style={styles.chalkStatNumber}>{todayClasses.length}</span>
-                <span style={styles.chalkStatLabel}>Today</span>
+            <div style={dynamicStyles.chalkStats}>
+              <div style={dynamicStyles.chalkStatItem}>
+                <span style={dynamicStyles.chalkStatNumber}>{todayClasses.length}</span>
+                <span style={dynamicStyles.chalkStatLabel}>Today</span>
               </div>
-              <div style={styles.chalkDivider}>|</div>
-              <div style={styles.chalkStatItem}>
-                <span style={styles.chalkStatNumber}>{allClasses.length}</span>
-                <span style={styles.chalkStatLabel}>Classes</span>
+              <div style={dynamicStyles.chalkDivider}>|</div>
+              <div style={dynamicStyles.chalkStatItem}>
+                <span style={dynamicStyles.chalkStatNumber}>{allClasses.length}</span>
+                <span style={dynamicStyles.chalkStatLabel}>Classes</span>
               </div>
-              <div style={styles.chalkDivider}>|</div>
-              <div style={styles.chalkStatItem}>
-                <span style={styles.chalkStatNumber}>{studentCount}</span>
-                <span style={styles.chalkStatLabel}>Students</span>
+              <div style={dynamicStyles.chalkDivider}>|</div>
+              <div style={dynamicStyles.chalkStatItem}>
+                <span style={dynamicStyles.chalkStatNumber}>{studentCount}</span>
+                <span style={dynamicStyles.chalkStatLabel}>Students</span>
               </div>
             </div>
 
             {/* Date in corner - like written on board */}
-            <div style={styles.chalkDate}>
-              <span style={styles.chalkDay}>{getCurrentDay()}</span>
-              <span style={styles.chalkFullDate}>{formatDate(new Date(), { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            <div style={dynamicStyles.chalkDate}>
+              <span style={dynamicStyles.chalkDay}>{getCurrentDay()}</span>
+              <span style={dynamicStyles.chalkFullDate}>{formatDate(new Date(), { month: 'short', day: 'numeric', year: 'numeric' })}</span>
             </div>
           </div>
         </div>
 
         {/* Live Class Notification - overlaid on board corner */}
         {currentClass && (
-          <div style={styles.liveClassBadge}>
-            <div style={styles.liveDot}></div>
+          <div style={dynamicStyles.liveClassBadge}>
+            <div style={dynamicStyles.liveDot}></div>
             <span>LIVE: {currentClass.subject}</span>
-            <button style={styles.liveBtn} onClick={handleMarkAttendance}>
+            <button style={dynamicStyles.liveBtn} onClick={handleMarkAttendance}>
               Mark Attendance →
             </button>
           </div>
@@ -181,14 +186,14 @@ export default function DashboardPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           STATS ISLAND - Redesigned with varied shapes and colors
           ═══════════════════════════════════════════════════════════════════ */}
-      <div style={styles.statsIsland}>
-        <div style={styles.statsIslandInner}>
+      <div style={dynamicStyles.statsIsland}>
+        <div style={dynamicStyles.statsIslandInner}>
           {/* Total Classes - Large wide tile */}
           <div 
-            style={styles.statTileClasses}
+            style={dynamicStyles.statTileClasses}
             onClick={() => navigate('/classes')}
           >
-            <div style={styles.statTileIcon}>
+            <div style={dynamicStyles.statTileIcon}>
               <svg viewBox="0 0 24 24" fill="none" style={{width: '24px', height: '24px'}}>
                 <rect x="3" y="3" width="7" height="7" rx="2" fill="currentColor" opacity="0.8"/>
                 <rect x="14" y="3" width="7" height="7" rx="2" fill="currentColor" opacity="0.6"/>
@@ -196,19 +201,19 @@ export default function DashboardPage() {
                 <rect x="14" y="14" width="7" height="7" rx="2" fill="currentColor" opacity="0.4"/>
               </svg>
             </div>
-            <div style={styles.statTileContent}>
-              <span style={styles.statTileValue}>{allClasses.length}</span>
-              <span style={styles.statTileLabel}>Total Classes</span>
+            <div style={dynamicStyles.statTileContent}>
+              <span style={dynamicStyles.statTileValue}>{allClasses.length}</span>
+              <span style={dynamicStyles.statTileLabel}>Total Classes</span>
             </div>
-            <div style={styles.statTileArrow}>→</div>
+            <div style={dynamicStyles.statTileArrow}>→</div>
           </div>
 
           {/* Students - Tall tile */}
           <div 
-            style={styles.statTileStudents}
+            style={dynamicStyles.statTileStudents}
             onClick={() => navigate('/students')}
           >
-            <div style={styles.statTileIconLarge}>
+            <div style={dynamicStyles.statTileIconLarge}>
               <svg viewBox="0 0 32 32" fill="none" style={{width: '32px', height: '32px'}}>
                 <circle cx="16" cy="10" r="6" fill="currentColor" opacity="0.9"/>
                 <circle cx="8" cy="12" r="4" fill="currentColor" opacity="0.5"/>
@@ -216,23 +221,23 @@ export default function DashboardPage() {
                 <path d="M16 18C10 18 5 22 5 28H27C27 22 22 18 16 18Z" fill="currentColor" opacity="0.7"/>
               </svg>
             </div>
-            <span style={styles.statTileValueLarge}>{studentCount}</span>
-            <span style={styles.statTileLabelLight}>Students Enrolled</span>
+            <span style={dynamicStyles.statTileValueLarge}>{studentCount}</span>
+            <span style={dynamicStyles.statTileLabelLight}>Students Enrolled</span>
           </div>
 
           {/* Today's Classes - Circle tile */}
-          <div style={styles.statTileToday}>
-            <div style={styles.statCircleOuter}>
-              <div style={styles.statCircleInner}>
-                <span style={styles.statCircleValue}>{todayClasses.length}</span>
+          <div style={dynamicStyles.statTileToday}>
+            <div style={dynamicStyles.statCircleOuter}>
+              <div style={dynamicStyles.statCircleInner}>
+                <span style={dynamicStyles.statCircleValue}>{todayClasses.length}</span>
               </div>
             </div>
-            <span style={styles.statTileLabelSmall}>Classes Today</span>
+            <span style={dynamicStyles.statTileLabelSmall}>Classes Today</span>
           </div>
 
           {/* Current Day - Pill tile */}
-          <div style={styles.statTileDay}>
-            <div style={styles.dayIconWrapper}>
+          <div style={dynamicStyles.statTileDay}>
+            <div style={dynamicStyles.dayIconWrapper}>
               <svg viewBox="0 0 24 24" fill="none" style={{width: '20px', height: '20px'}}>
                 <rect x="3" y="4" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2" fill="none"/>
                 <path d="M3 9H21" stroke="currentColor" strokeWidth="2"/>
@@ -240,60 +245,60 @@ export default function DashboardPage() {
                 <path d="M16 2V5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </div>
-            <div style={styles.dayContent}>
-              <span style={styles.dayValue}>{getCurrentDay()}</span>
-              <span style={styles.dayLabel}>{formatDate(new Date(), { month: 'short', day: 'numeric' })}</span>
+            <div style={dynamicStyles.dayContent}>
+              <span style={dynamicStyles.dayValue}>{getCurrentDay()}</span>
+              <span style={dynamicStyles.dayLabel}>{formatDate(new Date(), { month: 'short', day: 'numeric' })}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Today's Schedule */}
-      <div style={styles.scheduleCard}>
-        <div style={styles.scheduleHeader}>
-          <h3 style={styles.scheduleTitle}>Today's Schedule</h3>
-          <Link to="/classes" style={styles.scheduleViewAll}>View All →</Link>
+      <div style={dynamicStyles.scheduleCard}>
+        <div style={dynamicStyles.scheduleHeader}>
+          <h3 style={dynamicStyles.scheduleTitle}>Today's Schedule</h3>
+          <Link to="/classes" style={dynamicStyles.scheduleViewAll}>View All →</Link>
         </div>
         
         {todayClasses.length === 0 ? (
-          <div style={styles.timelineEmpty}>
-            <div style={styles.timelinePlaceholder}>
+          <div style={dynamicStyles.timelineEmpty}>
+            <div style={dynamicStyles.timelinePlaceholder}>
               {timelineSlots.map((time) => (
-                <div key={time} style={styles.timelineSlot}>
-                  <span style={styles.timelineTime}>{time}</span>
-                  <div style={styles.timelineLine}></div>
+                <div key={time} style={dynamicStyles.timelineSlot}>
+                  <span style={dynamicStyles.timelineTime}>{time}</span>
+                  <div style={dynamicStyles.timelineLine}></div>
                 </div>
               ))}
             </div>
-            <div style={styles.timelineMessage}>
-              <p style={styles.timelineEmptyText}>No classes scheduled for today</p>
-              <Link to="/classes" style={styles.timelineAddBtn}>+ Add a Class</Link>
+            <div style={dynamicStyles.timelineMessage}>
+              <p style={dynamicStyles.timelineEmptyText}>No classes scheduled for today</p>
+              <Link to="/classes" style={dynamicStyles.timelineAddBtn}>+ Add a Class</Link>
             </div>
           </div>
         ) : (
-          <div style={styles.scheduleList}>
+          <div style={dynamicStyles.scheduleList}>
             {todayClasses
               .sort((a, b) => a.startTime.localeCompare(b.startTime))
               .map((cls, index) => (
                 <div 
                   key={cls._id} 
                   style={{
-                    ...styles.scheduleItem,
+                    ...dynamicStyles.scheduleItem,
                     ...(currentClass?._id === cls._id && styles.scheduleItemLive),
                   }}
                 >
-                  <div style={styles.scheduleTimeBlock}>
-                    <span style={styles.scheduleStartTime}>{formatTime(cls.startTime)}</span>
-                    <div style={styles.scheduleTimeDivider}></div>
-                    <span style={styles.scheduleEndTime}>{formatTime(cls.endTime)}</span>
+                  <div style={dynamicStyles.scheduleTimeBlock}>
+                    <span style={dynamicStyles.scheduleStartTime}>{formatTime(cls.startTime)}</span>
+                    <div style={dynamicStyles.scheduleTimeDivider}></div>
+                    <span style={dynamicStyles.scheduleEndTime}>{formatTime(cls.endTime)}</span>
                   </div>
-                  <div style={styles.scheduleInfo}>
-                    <span style={styles.scheduleSubject}>{cls.subject}</span>
+                  <div style={dynamicStyles.scheduleInfo}>
+                    <span style={dynamicStyles.scheduleSubject}>{cls.subject}</span>
                     {currentClass?._id === cls._id && (
-                      <span style={styles.scheduleLiveBadge}>● Live</span>
+                      <span style={dynamicStyles.scheduleLiveBadge}>● Live</span>
                     )}
                   </div>
-                  <Link to={`/attendance?classId=${cls._id}`} style={styles.scheduleAction}>
+                  <Link to={`/attendance?classId=${cls._id}`} style={dynamicStyles.scheduleAction}>
                     Attendance →
                   </Link>
                 </div>
@@ -303,35 +308,35 @@ export default function DashboardPage() {
       </div>
 
       {/* Guided Actions */}
-      <div style={styles.actionsGrid}>
-        <Link to="/attendance" style={styles.actionCard}>
-          <div style={{...styles.actionIconWrapper, background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.05) 100%)'}}>
-            <span style={{...styles.actionIcon, color: '#22C55E'}}>◧</span>
+      <div style={dynamicStyles.actionsGrid}>
+        <Link to="/attendance" style={dynamicStyles.actionCard}>
+          <div style={{...dynamicStyles.actionIconWrapper, background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.05) 100%)'}}>
+            <span style={{...dynamicStyles.actionIcon, color: '#22C55E'}}>◧</span>
           </div>
-          <div style={styles.actionContent}>
-            <h4 style={styles.actionTitle}>Mark Attendance</h4>
-            <p style={styles.actionDesc}>Record student presence for a class</p>
-          </div>
-        </Link>
-
-        <Link to="/students" style={{...styles.actionCard, ...styles.actionCardPrimary}}>
-          <div style={styles.actionBadge}>Most teachers start here</div>
-          <div style={{...styles.actionIconWrapper, background: 'linear-gradient(135deg, rgba(9, 65, 109, 0.2) 0%, rgba(9, 65, 109, 0.08) 100%)'}}>
-            <span style={styles.actionIcon}>◎</span>
-          </div>
-          <div style={styles.actionContent}>
-            <h4 style={styles.actionTitle}>Manage Students</h4>
-            <p style={styles.actionDesc}>Add or view your students list</p>
+          <div style={dynamicStyles.actionContent}>
+            <h4 style={dynamicStyles.actionTitle}>Mark Attendance</h4>
+            <p style={dynamicStyles.actionDesc}>Record student presence for a class</p>
           </div>
         </Link>
 
-        <Link to="/analytics" style={styles.actionCard}>
-          <div style={{...styles.actionIconWrapper, background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%)'}}>
-            <span style={{...styles.actionIcon, color: '#F59E0B'}}>◈</span>
+        <Link to="/students" style={{...dynamicStyles.actionCard, ...dynamicStyles.actionCardPrimary}}>
+          <div style={dynamicStyles.actionBadge}>Most teachers start here</div>
+          <div style={{...dynamicStyles.actionIconWrapper, background: 'linear-gradient(135deg, rgba(9, 65, 109, 0.2) 0%, rgba(9, 65, 109, 0.08) 100%)'}}>
+            <span style={dynamicStyles.actionIcon}>◎</span>
           </div>
-          <div style={styles.actionContent}>
-            <h4 style={styles.actionTitle}>View Analytics</h4>
-            <p style={styles.actionDesc}>Attendance trends and insights</p>
+          <div style={dynamicStyles.actionContent}>
+            <h4 style={dynamicStyles.actionTitle}>Manage Students</h4>
+            <p style={dynamicStyles.actionDesc}>Add or view your students list</p>
+          </div>
+        </Link>
+
+        <Link to="/analytics" style={dynamicStyles.actionCard}>
+          <div style={{...dynamicStyles.actionIconWrapper, background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%)'}}>
+            <span style={{...dynamicStyles.actionIcon, color: '#F59E0B'}}>◈</span>
+          </div>
+          <div style={dynamicStyles.actionContent}>
+            <h4 style={dynamicStyles.actionTitle}>View Analytics</h4>
+            <p style={dynamicStyles.actionDesc}>Attendance trends and insights</p>
           </div>
         </Link>
       </div>
@@ -346,7 +351,7 @@ function getTimeOfDay() {
   return 'evening';
 }
 
-const styles = {
+const getStyles = (isDark) => ({
   container: {
     position: 'relative',
     minHeight: '100%',
@@ -827,12 +832,14 @@ const styles = {
   // STATS ISLAND - New Island Design
   // ═══════════════════════════════════════════════════════════════════════════
   statsIsland: {
-    background: 'linear-gradient(135deg, rgba(230, 240, 250, 0.9) 0%, rgba(240, 245, 255, 0.95) 50%, rgba(235, 242, 252, 0.9) 100%)',
+    background: isDark 
+      ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(51, 65, 85, 0.95) 50%, rgba(30, 41, 59, 0.9) 100%)'
+      : 'linear-gradient(135deg, rgba(230, 240, 250, 0.9) 0%, rgba(240, 245, 255, 0.95) 50%, rgba(235, 242, 252, 0.9) 100%)',
     borderRadius: '28px',
     padding: '24px',
     marginBottom: '24px',
-    boxShadow: '0 8px 40px rgba(9, 65, 109, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-    border: '1px solid rgba(9, 65, 109, 0.08)',
+    boxShadow: isDark ? '0 8px 40px rgba(0, 0, 0, 0.3)' : '0 8px 40px rgba(9, 65, 109, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(9, 65, 109, 0.08)',
     position: 'relative',
     overflow: 'hidden',
   },
@@ -1013,13 +1020,13 @@ const styles = {
 
   // Schedule Card
   scheduleCard: {
-    background: 'rgba(255, 255, 255, 0.65)',
+    background: isDark ? 'rgba(30, 41, 59, 0.75)' : 'rgba(255, 255, 255, 0.65)',
     backdropFilter: 'blur(16px)',
-    border: '1px solid rgba(255, 255, 255, 0.4)',
+    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(255, 255, 255, 0.4)',
     borderRadius: '20px',
     padding: '24px 28px',
     marginBottom: '24px',
-    boxShadow: '0 8px 32px rgba(9, 65, 109, 0.06)',
+    boxShadow: isDark ? '0 8px 32px rgba(0, 0, 0, 0.3)' : '0 8px 32px rgba(9, 65, 109, 0.06)',
   },
   scheduleHeader: {
     display: 'flex',
@@ -1030,13 +1037,13 @@ const styles = {
   scheduleTitle: {
     fontSize: '1.0625rem',
     fontWeight: 600,
-    color: '#1F2937',
+    color: isDark ? '#F1F5F9' : '#1F2937',
     margin: 0,
   },
   scheduleViewAll: {
     fontSize: '0.8125rem',
     fontWeight: 500,
-    color: '#6B7280',
+    color: isDark ? '#94A3B8' : '#6B7280',
     textDecoration: 'none',
   },
   timelineEmpty: {
@@ -1162,21 +1169,23 @@ const styles = {
   },
   actionCard: {
     position: 'relative',
-    background: 'rgba(255, 255, 255, 0.55)',
+    background: isDark ? 'rgba(30, 41, 59, 0.75)' : 'rgba(255, 255, 255, 0.55)',
     backdropFilter: 'blur(12px)',
-    border: '1px solid rgba(255, 255, 255, 0.4)',
+    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(255, 255, 255, 0.4)',
     borderRadius: '20px',
     padding: '28px 24px',
     textDecoration: 'none',
     transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-    boxShadow: '0 8px 32px rgba(9, 65, 109, 0.06)',
+    boxShadow: isDark ? '0 8px 32px rgba(0, 0, 0, 0.3)' : '0 8px 32px rgba(9, 65, 109, 0.06)',
     display: 'flex',
     flexDirection: 'column',
     gap: '16px',
   },
   actionCardPrimary: {
-    background: 'linear-gradient(135deg, rgba(9, 65, 109, 0.08), rgba(187, 190, 227, 0.18))',
-    border: '1px solid rgba(9, 65, 109, 0.15)',
+    background: isDark 
+      ? 'linear-gradient(135deg, rgba(96, 165, 250, 0.15), rgba(129, 140, 248, 0.2))'
+      : 'linear-gradient(135deg, rgba(9, 65, 109, 0.08), rgba(187, 190, 227, 0.18))',
+    border: isDark ? '1px solid rgba(96, 165, 250, 0.2)' : '1px solid rgba(9, 65, 109, 0.15)',
   },
   actionBadge: {
     position: 'absolute',
@@ -1201,19 +1210,19 @@ const styles = {
   },
   actionIcon: {
     fontSize: '1.375rem',
-    color: '#09416D',
+    color: isDark ? '#60A5FA' : '#09416D',
   },
   actionContent: {},
   actionTitle: {
     fontSize: '1rem',
     fontWeight: 600,
-    color: '#1F2937',
+    color: isDark ? '#F1F5F9' : '#1F2937',
     margin: '0 0 4px 0',
   },
   actionDesc: {
     fontSize: '0.8125rem',
-    color: '#6B7280',
+    color: isDark ? '#94A3B8' : '#6B7280',
     margin: 0,
     lineHeight: 1.4,
   },
-};
+});

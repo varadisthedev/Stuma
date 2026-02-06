@@ -7,6 +7,7 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 // Layout
 import Layout from './components/layout/Layout';
@@ -44,35 +45,37 @@ function App() {
   console.log('[APP] Rendering App component');
   
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<LoginPage />} />
-          
-          {/* Protected Routes */}
-          <Route
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/classes" element={<ClassesPage />} />
-            <Route path="/students" element={<StudentsPage />} />
-            <Route path="/attendance" element={<AttendancePage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
-          </Route>
-          
-          {/* Root redirect */}
-          <Route path="/" element={<RootRedirect />} />
-          
-          {/* Catch all - redirect to dashboard */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<LoginPage />} />
+            
+            {/* Protected Routes */}
+            <Route
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/classes" element={<ClassesPage />} />
+              <Route path="/students" element={<StudentsPage />} />
+              <Route path="/attendance" element={<AttendancePage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
+            </Route>
+            
+            {/* Root redirect */}
+            <Route path="/" element={<RootRedirect />} />
+            
+            {/* Catch all - redirect to dashboard */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

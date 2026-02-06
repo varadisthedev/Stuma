@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * Attendance Page
+ * Attendance Page - Dark Mode Compatible
  * Mark attendance for classes - select class, date, and mark students
  * Supports both manual and IoT device attendance modes
  * ═══════════════════════════════════════════════════════════════════════════
@@ -10,14 +10,46 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { classesAPI, studentsAPI, attendanceAPI, iotAPI } from '../../services/api';
 import { formatTime, toISODateString, formatDate } from '../../utils/helpers';
+import { useTheme } from '../../context/ThemeContext';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Alert from '../../components/ui/Alert';
+
+// Dynamic colors based on theme
+const getColors = (isDark) => ({
+  primary: isDark ? '#60A5FA' : '#09416D',
+  primaryLight: isDark ? '#93C5FD' : '#0A5A94',
+  accent: isDark ? '#6366F1' : '#DBFCFF',
+  accentBorder: isDark ? '#818CF8' : '#A8E8EF',
+  success: '#22C55E',
+  successLight: '#4ADE80',
+  danger: '#EF4444',
+  dangerLight: '#F87171',
+  cardBg: isDark ? '#1E293B' : 'rgba(255, 255, 255, 0.65)',
+  cardBorder: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.4)',
+  surfaceBg: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.6)',
+  surfaceAlt: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.8)',
+  borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(180, 184, 197, 0.3)',
+  textPrimary: isDark ? '#F1F5F9' : '#1F2937',
+  textSecondary: isDark ? '#CBD5E1' : '#4B5563',
+  textMuted: isDark ? '#94A3B8' : '#6B7280',
+  textLight: isDark ? '#64748B' : '#9CA3AF',
+  inputBg: isDark ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)',
+  iotBg: isDark 
+    ? 'linear-gradient(135deg, rgba(96, 165, 250, 0.1) 0%, rgba(99, 102, 241, 0.2) 100%)'
+    : 'linear-gradient(135deg, rgba(9, 65, 109, 0.05) 0%, rgba(219, 252, 255, 0.3) 100%)',
+  iotActiveBg: isDark
+    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(99, 102, 241, 0.2) 100%)'
+    : 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(219, 252, 255, 0.4) 100%)',
+  summaryBg: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)',
+});
 
 export default function AttendancePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedClassId = searchParams.get('classId');
+  const { isDarkMode } = useTheme();
+  const COLORS = getColors(isDarkMode);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,54 +61,36 @@ export default function AttendancePage() {
   // Form state
   const [selectedClassId, setSelectedClassId] = useState(preselectedClassId || '');
   const [selectedDate, setSelectedDate] = useState(toISODateString(new Date()));
-  const [attendance, setAttendance] = useState({}); // { studentId: 'present' | 'absent' }
+  const [attendance, setAttendance] = useState({});
   const [selectAllMode, setSelectAllMode] = useState('present');
 
   // IoT Mode State
   const [isIoTMode, setIsIoTMode] = useState(false);
-  const [iotSession, setIotSession] = useState(null); // { sessionId, totalStudents, currentStudent, ... }
+  const [iotSession, setIotSession] = useState(null);
   const [iotStatus, setIotStatus] = useState(null);
   const pollIntervalRef = useRef(null);
   
-  // Auto-Next Mode: Automatically send next student to ESP32 every 6 seconds
   const [autoNextEnabled, setAutoNextEnabled] = useState(false);
   const autoNextIntervalRef = useRef(null);
 
-  /**
-   * Load data on mount
-   */
   useEffect(() => {
     loadData();
     return () => {
-      // Cleanup polling on unmount
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-      if (autoNextIntervalRef.current) {
-        clearInterval(autoNextIntervalRef.current);
-      }
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      if (autoNextIntervalRef.current) clearInterval(autoNextIntervalRef.current);
     };
   }, []);
 
-  /**
-   * Poll IoT session status when active
-   */
   useEffect(() => {
     if (iotSession?.sessionId && isIoTMode) {
-      // Start polling
       pollIntervalRef.current = setInterval(async () => {
         try {
           const status = await iotAPI.getSessionStatus(iotSession.sessionId);
           setIotStatus(status);
-          
-          // Check if session completed
-          if (status.currentIndex >= status.totalStudents) {
-            console.log('[IOT] Session completed');
-          }
         } catch (err) {
           console.error('[IOT] Failed to poll status:', err);
         }
-      }, 2000); // Poll every 2 seconds
+      }, 2000);
     }
 
     return () => {
@@ -87,27 +101,17 @@ export default function AttendancePage() {
     };
   }, [iotSession?.sessionId, isIoTMode]);
 
-  /**
-   * Auto-Next: Automatically send next student to ESP32 every 6 seconds
-   * Only triggers when:
-   * - autoNextEnabled is true
-   * - Session is active
-   * - hasStudent is false (waiting for next)
-   * - There are still students remaining
-   */
   useEffect(() => {
     if (autoNextEnabled && isIoTMode && iotSession?.sessionId) {
       autoNextIntervalRef.current = setInterval(async () => {
-        // Only auto-assign if hasStudent is false and not done
         if (iotStatus && !iotStatus.hasStudent && iotStatus.currentIndex < iotStatus.totalStudents) {
-          console.log('[IOT] Auto-Next: Assigning next student...');
           try {
             await iotAPI.nextStudent(iotSession.sessionId);
           } catch (err) {
             console.error('[IOT] Auto-Next failed:', err);
           }
         }
-      }, 6000); // Every 6 seconds
+      }, 6000);
     }
 
     return () => {
@@ -118,11 +122,7 @@ export default function AttendancePage() {
     };
   }, [autoNextEnabled, isIoTMode, iotSession?.sessionId, iotStatus?.hasStudent, iotStatus?.currentIndex, iotStatus?.totalStudents]);
 
-  /**
-   * Fetch classes and students
-   */
   const loadData = async () => {
-    console.log('[ATTENDANCE] Loading data');
     setIsLoading(true);
     setError('');
 
@@ -132,13 +132,9 @@ export default function AttendancePage() {
         studentsAPI.getAll(),
       ]);
 
-      console.log('[ATTENDANCE] Classes:', classesRes.classes?.length);
-      console.log('[ATTENDANCE] Students:', studentsRes.count);
-
       setClasses(classesRes.classes || []);
       setStudents(studentsRes.students || []);
 
-      // Initialize attendance (all present by default)
       const initialAttendance = {};
       (studentsRes.students || []).forEach((s) => {
         initialAttendance[s._id] = 'present';
@@ -153,9 +149,6 @@ export default function AttendancePage() {
     setIsLoading(false);
   };
 
-  /**
-   * Toggle student attendance status
-   */
   const toggleAttendance = (studentId) => {
     setAttendance((prev) => ({
       ...prev,
@@ -163,11 +156,7 @@ export default function AttendancePage() {
     }));
   };
 
-  /**
-   * Mark all students with same status
-   */
   const handleMarkAll = (status) => {
-    console.log('[ATTENDANCE] Marking all students as:', status);
     const newAttendance = {};
     students.forEach((s) => {
       newAttendance[s._id] = status;
@@ -176,21 +165,15 @@ export default function AttendancePage() {
     setSelectAllMode(status);
   };
 
-  /**
-   * Submit attendance (Manual Mode)
-   */
   const handleSubmit = async () => {
-    // Validation
     if (!selectedClassId) {
       setError('Please select a class');
       return;
     }
-
     if (!selectedDate) {
       setError('Please select a date');
       return;
     }
-
     if (students.length === 0) {
       setError('No students to mark attendance for');
       return;
@@ -199,51 +182,34 @@ export default function AttendancePage() {
     setError('');
     setIsSubmitting(true);
 
-    // Build records array
     const records = students.map((student) => ({
       student: student._id,
       status: attendance[student._id] || 'absent',
     }));
 
-    const payload = {
-      class: selectedClassId,
-      date: selectedDate,
-      records,
-    };
-
-    console.log('[ATTENDANCE] Submitting attendance:', payload);
-
     try {
-      const response = await attendanceAPI.mark(payload);
+      const response = await attendanceAPI.mark({
+        class: selectedClassId,
+        date: selectedDate,
+        records,
+      });
 
       if (response.success) {
-        console.log('[ATTENDANCE] Attendance marked successfully');
         setSuccess('Attendance marked successfully!');
-        
-        // Redirect to analytics after short delay
         setTimeout(() => {
           navigate(`/analytics?classId=${selectedClassId}`);
         }, 1500);
       }
     } catch (err) {
-      console.error('[ATTENDANCE] Failed to submit:', err);
       setError(err.response?.data?.message || 'Failed to mark attendance');
     }
 
     setIsSubmitting(false);
   };
 
-  /**
-   * Start IoT attendance session
-   */
   const handleStartIoTSession = async () => {
-    if (!selectedClassId) {
-      setError('Please select a class first');
-      return;
-    }
-
-    if (!selectedDate) {
-      setError('Please select a date first');
+    if (!selectedClassId || !selectedDate) {
+      setError('Please select a class and date first');
       return;
     }
 
@@ -252,24 +218,18 @@ export default function AttendancePage() {
 
     try {
       const response = await iotAPI.startSession(selectedClassId, selectedDate);
-      
       if (response.success) {
         setIotSession(response);
         setIsIoTMode(true);
-        setSuccess('IoT session started! ESP32 can now take attendance.');
-        console.log('[IOT] Session started:', response.sessionId);
+        setSuccess('IoT session started!');
       }
     } catch (err) {
-      console.error('[IOT] Failed to start session:', err);
       setError(err.response?.data?.message || 'Failed to start IoT session');
     }
 
     setIsSubmitting(false);
   };
 
-  /**
-   * Stop IoT session and save attendance
-   */
   const handleStopIoTSession = async (saveProgress = true) => {
     if (!iotSession?.sessionId) return;
 
@@ -278,92 +238,63 @@ export default function AttendancePage() {
 
     try {
       const response = await iotAPI.stopSession(iotSession.sessionId, saveProgress);
-      
       if (response.success) {
-        setSuccess(saveProgress ? 'Attendance saved successfully!' : 'Session ended without saving.');
+        setSuccess(saveProgress ? 'Attendance saved!' : 'Session ended.');
         setIotSession(null);
         setIotStatus(null);
         setIsIoTMode(false);
-        setAutoNextEnabled(false); // Reset auto-next on session end
+        setAutoNextEnabled(false);
 
         if (saveProgress && response.attendanceId) {
-          // Redirect to analytics
-          setTimeout(() => {
-            navigate(`/analytics?classId=${selectedClassId}`);
-          }, 1500);
+          setTimeout(() => navigate(`/analytics?classId=${selectedClassId}`), 1500);
         }
       }
     } catch (err) {
-      console.error('[IOT] Failed to stop session:', err);
       setError(err.response?.data?.message || 'Failed to stop session');
     }
 
     setIsSubmitting(false);
   };
 
-  /**
-   * Skip current student in IoT mode
-   */
   const handleSkipStudent = async () => {
     if (!iotSession?.sessionId) return;
-
     try {
-      const response = await iotAPI.skipStudent(iotSession.sessionId);
-      if (response.success) {
-        console.log('[IOT] Skipped student');
-        // Status will update on next poll
-      }
+      await iotAPI.skipStudent(iotSession.sessionId);
     } catch (err) {
-      console.error('[IOT] Failed to skip student:', err);
       setError(err.response?.data?.message || 'Failed to skip student');
     }
   };
 
-  /**
-   * Assign next student to ESP32 (sets hasStudent=true)
-   */
   const handleNextStudent = async () => {
     if (!iotSession?.sessionId) return;
-
     try {
-      const response = await iotAPI.nextStudent(iotSession.sessionId);
-      if (response.success) {
-        console.log('[IOT] Assigned student to ESP32:', response.currentStudent?.name);
-        // Status will update on next poll
-      }
+      await iotAPI.nextStudent(iotSession.sessionId);
     } catch (err) {
-      console.error('[IOT] Failed to assign next student:', err);
       setError(err.response?.data?.message || 'Failed to assign next student');
     }
   };
 
-  /**
-   * Get attendance summary
-   */
   const presentCount = Object.values(attendance).filter((s) => s === 'present').length;
   const absentCount = Object.values(attendance).filter((s) => s === 'absent').length;
-
-  /**
-   * Get selected class info
-   */
   const selectedClass = classes.find((c) => c._id === selectedClassId);
+
+  const styles = getStyles(COLORS, isDarkMode);
 
   if (isLoading) {
     return <LoadingSpinner message="Loading..." />;
   }
 
-  // Check for prerequisites
   if (classes.length === 0) {
     return (
       <div className="animate-fade-in">
         <div className="page-header">
           <h1 className="page-title">Mark Attendance</h1>
         </div>
-        <div className="glass-card-static" style={{ padding: '2rem' }}>
+        <div style={styles.emptyCard}>
           <EmptyState
             icon="◫"
             title="No classes available"
-            message="You need to create classes before marking attendance"
+            message="Create classes before marking attendance"
             action={() => navigate('/classes')}
             actionLabel="Create a Class"
           />
@@ -378,11 +309,11 @@ export default function AttendancePage() {
         <div className="page-header">
           <h1 className="page-title">Mark Attendance</h1>
         </div>
-        <div className="glass-card-static" style={{ padding: '2rem' }}>
+        <div style={styles.emptyCard}>
           <EmptyState
             icon="◎"
             title="No students available"
-            message="You need to add students before marking attendance"
+            message="Add students before marking attendance"
             action={() => navigate('/students')}
             actionLabel="Add Students"
           />
@@ -405,7 +336,7 @@ export default function AttendancePage() {
       {success && <Alert type="success" message={success} />}
 
       {/* Selection Card */}
-      <div className="glass-card-static" style={styles.selectionCard}>
+      <div style={styles.selectionCard}>
         <div style={styles.selectionGrid}>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Select Class</label>
@@ -447,9 +378,9 @@ export default function AttendancePage() {
         )}
       </div>
 
-      {/* Mode Toggle - IoT Device Option */}
+      {/* IoT Card */}
       {!isIoTMode && (
-        <div className="glass-card-static" style={styles.iotCard}>
+        <div style={styles.iotCard}>
           <div style={styles.iotHeader}>
             <div style={styles.iotIcon}>📡</div>
             <div style={styles.iotInfo}>
@@ -462,7 +393,6 @@ export default function AttendancePage() {
               className="btn btn-primary"
               onClick={handleStartIoTSession}
               disabled={isSubmitting || !selectedClassId}
-              style={styles.iotButton}
             >
               {isSubmitting ? 'Starting...' : '🚀 Start IoT Session'}
             </button>
@@ -470,9 +400,9 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {/* IoT Session Active Panel */}
+      {/* IoT Active Session */}
       {isIoTMode && iotSession && (
-        <div className="glass-card-static" style={styles.iotActiveCard}>
+        <div style={styles.iotActiveCard}>
           <div style={styles.iotActiveHeader}>
             <div style={styles.pulseIndicator}>
               <span style={styles.pulseCircle}></span>
@@ -481,17 +411,12 @@ export default function AttendancePage() {
             <h3 style={styles.iotActiveTitle}>IoT Session Active</h3>
           </div>
 
-          {/* Session Info */}
           <div style={styles.sessionInfo}>
             <div style={styles.sessionIdBox}>
               <span style={styles.sessionLabel}>Session ID:</span>
               <code style={styles.sessionIdCode}>{iotSession.sessionId}</code>
             </div>
-            <p style={styles.sessionHint}>
-              ESP32 should call: <code>GET /api/iot/current/{iotSession.sessionId}</code>
-            </p>
             
-            {/* Auto-Next Toggle */}
             <div style={styles.autoNextToggle}>
               <label style={styles.toggleLabel}>
                 <input
@@ -504,119 +429,74 @@ export default function AttendancePage() {
                   <span style={{
                     ...styles.toggleSlider,
                     transform: autoNextEnabled ? 'translateX(20px)' : 'translateX(0)',
-                    background: autoNextEnabled ? '#22C55E' : '#9CA3AF',
+                    background: autoNextEnabled ? '#22C55E' : COLORS.textLight,
                   }} />
                 </span>
                 <span style={styles.toggleText}>
-                  🔄 Auto-Next {autoNextEnabled ? '(ON - every 6s)' : '(OFF)'}
+                  🔄 Auto-Next {autoNextEnabled ? '(ON)' : '(OFF)'}
                 </span>
               </label>
             </div>
           </div>
 
-          {/* Current Student Display */}
           {iotStatus && (
             <div style={styles.currentStudentCard}>
               {iotStatus.currentIndex >= iotStatus.totalStudents ? (
-                /* All students processed */
-                <div style={styles.completedMessage}>
-                  ✅ All students processed!
-                </div>
+                <div style={styles.completedMessage}>✅ All students processed!</div>
               ) : !iotStatus.hasStudent ? (
-                /* Waiting for admin to assign next student */
                 <div style={styles.waitingCard}>
                   <div style={styles.waitingIcon}>⏳</div>
-                  <div style={styles.waitingText}>
-                    Waiting to assign student to ESP32
-                  </div>
-                  <div style={styles.waitingHint}>
-                    Click "Next Student" to send student #{iotStatus.currentIndex + 1} to ESP32
-                  </div>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleNextStudent}
-                    style={styles.nextStudentButton}
-                  >
+                  <div style={styles.waitingText}>Waiting to assign student</div>
+                  <button className="btn btn-primary" onClick={handleNextStudent}>
                     ➡️ Next Student
                   </button>
                 </div>
               ) : (
-                /* Student assigned to ESP32 (hasStudent=true) */
                 <>
                   <div style={styles.studentPosition}>
                     Student {iotStatus.currentIndex + 1} of {iotStatus.totalStudents}
                   </div>
-                  <div style={styles.assignedBadge}>
-                    📲 Sent to ESP32
-                  </div>
-                  <div style={styles.currentStudentName}>
-                    {iotStatus.currentStudent?.name}
-                  </div>
+                  <div style={styles.assignedBadge}>📲 Sent to ESP32</div>
+                  <div style={styles.currentStudentName}>{iotStatus.currentStudent?.name}</div>
                   <div style={styles.currentStudentDetails}>
                     <span className="badge badge-primary">{iotStatus.currentStudent?.rollNo}</span>
-                    <span style={styles.sectionBadge}>{iotStatus.currentStudent?.section}</span>
                   </div>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={handleSkipStudent}
-                    style={styles.skipButton}
-                  >
-                    ⏭ Skip (Mark Absent)
+                  <button className="btn btn-ghost btn-sm" onClick={handleSkipStudent}>
+                    ⏭ Skip
                   </button>
                 </>
               )}
             </div>
           )}
 
-          {/* Progress Bar */}
           {iotStatus && (
             <div style={styles.progressSection}>
               <div style={styles.progressBar}>
-                <div 
-                  style={{
-                    ...styles.progressFill,
-                    width: `${(iotStatus.currentIndex / iotStatus.totalStudents) * 100}%`
-                  }}
-                />
+                <div style={{
+                  ...styles.progressFill,
+                  width: `${(iotStatus.currentIndex / iotStatus.totalStudents) * 100}%`
+                }} />
               </div>
               <div style={styles.progressStats}>
-                <div style={styles.progressStat}>
-                  <span style={{ color: '#22C55E' }}>✓ Present:</span>
-                  <strong>{iotStatus.summary?.present || 0}</strong>
-                </div>
-                <div style={styles.progressStat}>
-                  <span style={{ color: '#EF4444' }}>✗ Absent:</span>
-                  <strong>{iotStatus.summary?.absent || 0}</strong>
-                </div>
-                <div style={styles.progressStat}>
-                  <span style={{ color: '#6B7280' }}>⏳ Pending:</span>
-                  <strong>{iotStatus.summary?.pending || 0}</strong>
-                </div>
+                <span style={{ color: COLORS.success }}>✓ {iotStatus.summary?.present || 0}</span>
+                <span style={{ color: COLORS.danger }}>✗ {iotStatus.summary?.absent || 0}</span>
+                <span style={{ color: COLORS.textMuted }}>⏳ {iotStatus.summary?.pending || 0}</span>
               </div>
             </div>
           )}
 
-          {/* Session Controls */}
           <div style={styles.sessionControls}>
-            <button
-              className="btn btn-success"
-              onClick={() => handleStopIoTSession(true)}
-              disabled={isSubmitting}
-            >
-              ✓ Save & End Session
+            <button className="btn btn-success" onClick={() => handleStopIoTSession(true)} disabled={isSubmitting}>
+              ✓ Save & End
             </button>
-            <button
-              className="btn btn-danger"
-              onClick={() => handleStopIoTSession(false)}
-              disabled={isSubmitting}
-            >
-              ✗ Cancel Session
+            <button className="btn btn-danger" onClick={() => handleStopIoTSession(false)} disabled={isSubmitting}>
+              ✗ Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* Manual Mode - Attendance Summary */}
+      {/* Manual Mode */}
       {!isIoTMode && (
         <>
           <div style={styles.summaryBar}>
@@ -625,12 +505,12 @@ export default function AttendancePage() {
               <span style={styles.summaryValue}>{students.length}</span>
             </div>
             <div style={styles.summaryItem}>
-              <span style={{ ...styles.summaryLabel, color: '#22C55E' }}>Present</span>
-              <span style={{ ...styles.summaryValue, color: '#22C55E' }}>{presentCount}</span>
+              <span style={{ ...styles.summaryLabel, color: COLORS.success }}>Present</span>
+              <span style={{ ...styles.summaryValue, color: COLORS.success }}>{presentCount}</span>
             </div>
             <div style={styles.summaryItem}>
-              <span style={{ ...styles.summaryLabel, color: '#EF4444' }}>Absent</span>
-              <span style={{ ...styles.summaryValue, color: '#EF4444' }}>{absentCount}</span>
+              <span style={{ ...styles.summaryLabel, color: COLORS.danger }}>Absent</span>
+              <span style={{ ...styles.summaryValue, color: COLORS.danger }}>{absentCount}</span>
             </div>
             <div style={styles.summaryActions}>
               <button
@@ -648,9 +528,8 @@ export default function AttendancePage() {
             </div>
           </div>
 
-          {/* Student List */}
-          <div className="glass-card-static" style={styles.studentList}>
-            {students.map((student, index) => {
+          <div style={styles.studentList}>
+            {students.map((student) => {
               const isPresent = attendance[student._id] === 'present';
               return (
                 <div
@@ -659,7 +538,6 @@ export default function AttendancePage() {
                     ...styles.studentItem,
                     ...(isPresent ? styles.studentPresent : styles.studentAbsent),
                   }}
-                  className="animate-fade-in"
                   onClick={() => toggleAttendance(student._id)}
                 >
                   <div style={styles.studentInfo}>
@@ -668,12 +546,10 @@ export default function AttendancePage() {
                     </span>
                     <span style={styles.studentName}>{student.name}</span>
                   </div>
-                  <div
-                    style={{
-                      ...styles.statusToggle,
-                      ...(isPresent ? styles.statusPresent : styles.statusAbsent),
-                    }}
-                  >
+                  <div style={{
+                    ...styles.statusToggle,
+                    ...(isPresent ? styles.statusPresent : styles.statusAbsent),
+                  }}>
                     {isPresent ? 'Present' : 'Absent'}
                   </div>
                 </div>
@@ -681,7 +557,6 @@ export default function AttendancePage() {
             })}
           </div>
 
-          {/* Submit Button */}
           <div style={styles.submitSection}>
             <button
               className="btn btn-primary btn-lg"
@@ -689,14 +564,7 @@ export default function AttendancePage() {
               disabled={isSubmitting || !selectedClassId}
               style={styles.submitBtn}
             >
-              {isSubmitting ? (
-                <>
-                  <span className="spinner-sm" style={{ borderTopColor: 'white' }}></span>
-                  Submitting...
-                </>
-              ) : (
-                `Submit Attendance (${presentCount}P / ${absentCount}A)`
-              )}
+              {isSubmitting ? 'Submitting...' : `Submit (${presentCount}P / ${absentCount}A)`}
             </button>
           </div>
         </>
@@ -705,10 +573,21 @@ export default function AttendancePage() {
   );
 }
 
-const styles = {
+const getStyles = (COLORS, isDark) => ({
+  emptyCard: {
+    padding: '2rem',
+    background: COLORS.cardBg,
+    backdropFilter: 'blur(16px)',
+    border: `1px solid ${COLORS.cardBorder}`,
+    borderRadius: '1rem',
+  },
   selectionCard: {
     padding: '1.25rem',
     marginBottom: '1rem',
+    background: COLORS.cardBg,
+    backdropFilter: 'blur(16px)',
+    border: `1px solid ${COLORS.cardBorder}`,
+    borderRadius: '1rem',
   },
   selectionGrid: {
     display: 'grid',
@@ -721,18 +600,18 @@ const styles = {
     gap: '0.75rem',
     marginTop: '1rem',
     paddingTop: '1rem',
-    borderTop: '1px solid rgba(180, 184, 197, 0.3)',
+    borderTop: `1px solid ${COLORS.borderColor}`,
   },
   classTime: {
-    color: '#6B7280',
+    color: COLORS.textMuted,
     fontSize: '0.875rem',
   },
-  // IoT Card Styles
   iotCard: {
     padding: '1.25rem',
     marginBottom: '1rem',
-    background: 'linear-gradient(135deg, rgba(9, 65, 109, 0.05) 0%, rgba(219, 252, 255, 0.3) 100%)',
-    border: '2px dashed rgba(9, 65, 109, 0.3)',
+    background: COLORS.iotBg,
+    border: `2px dashed ${isDark ? 'rgba(96, 165, 250, 0.3)' : 'rgba(9, 65, 109, 0.3)'}`,
+    borderRadius: '1rem',
   },
   iotHeader: {
     display: 'flex',
@@ -751,22 +630,19 @@ const styles = {
     margin: 0,
     fontSize: '1.1rem',
     fontWeight: 600,
-    color: '#09416D',
+    color: COLORS.primary,
   },
   iotDescription: {
     margin: '0.25rem 0 0',
     fontSize: '0.875rem',
-    color: '#6B7280',
+    color: COLORS.textMuted,
   },
-  iotButton: {
-    whiteSpace: 'nowrap',
-  },
-  // IoT Active Session Styles
   iotActiveCard: {
     padding: '1.5rem',
     marginBottom: '1rem',
-    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(219, 252, 255, 0.4) 100%)',
-    border: '2px solid rgba(34, 197, 94, 0.4)',
+    background: COLORS.iotActiveBg,
+    border: `2px solid rgba(34, 197, 94, 0.4)`,
+    borderRadius: '1rem',
   },
   iotActiveHeader: {
     display: 'flex',
@@ -790,48 +666,40 @@ const styles = {
     fontSize: '0.75rem',
     fontWeight: 700,
     color: '#22C55E',
-    letterSpacing: '0.05em',
   },
   iotActiveTitle: {
     margin: 0,
     fontSize: '1.1rem',
     fontWeight: 600,
-    color: '#1F2937',
+    color: COLORS.textPrimary,
   },
   sessionInfo: {
     marginBottom: '1rem',
     padding: '0.75rem',
-    background: 'rgba(255, 255, 255, 0.6)',
+    background: COLORS.surfaceBg,
     borderRadius: '0.5rem',
   },
   sessionIdBox: {
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
-    marginBottom: '0.5rem',
+    marginBottom: '0.75rem',
   },
   sessionLabel: {
     fontSize: '0.875rem',
-    color: '#6B7280',
+    color: COLORS.textMuted,
   },
   sessionIdCode: {
     padding: '0.25rem 0.5rem',
-    background: 'rgba(0, 0, 0, 0.05)',
+    background: COLORS.inputBg,
     borderRadius: '0.25rem',
     fontSize: '0.8rem',
     fontFamily: 'monospace',
-    color: '#09416D',
+    color: COLORS.primary,
   },
-  sessionHint: {
-    margin: 0,
-    fontSize: '0.75rem',
-    color: '#9CA3AF',
-  },
-  // Auto-Next Toggle Styles
   autoNextToggle: {
-    marginTop: '1rem',
     paddingTop: '0.75rem',
-    borderTop: '1px solid rgba(0, 0, 0, 0.1)',
+    borderTop: `1px solid ${COLORS.borderColor}`,
   },
   toggleLabel: {
     display: 'flex',
@@ -840,15 +708,14 @@ const styles = {
     cursor: 'pointer',
   },
   toggleCheckbox: {
-    display: 'none', // Hide default checkbox
+    display: 'none',
   },
   toggleSwitch: {
     position: 'relative',
     width: '44px',
     height: '24px',
-    background: '#E5E7EB',
+    background: isDark ? '#334155' : '#E5E7EB',
     borderRadius: '12px',
-    transition: 'background 0.2s ease',
   },
   toggleSlider: {
     position: 'absolute',
@@ -863,25 +730,24 @@ const styles = {
   toggleText: {
     fontSize: '0.875rem',
     fontWeight: 500,
-    color: '#4B5563',
+    color: COLORS.textSecondary,
   },
   currentStudentCard: {
     padding: '1.5rem',
-    background: 'rgba(255, 255, 255, 0.8)',
+    background: COLORS.surfaceAlt,
     borderRadius: '0.75rem',
     textAlign: 'center',
     marginBottom: '1rem',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
   },
   studentPosition: {
     fontSize: '0.875rem',
-    color: '#6B7280',
+    color: COLORS.textMuted,
     marginBottom: '0.5rem',
   },
   currentStudentName: {
     fontSize: '1.5rem',
     fontWeight: 700,
-    color: '#1F2937',
+    color: COLORS.textPrimary,
     marginBottom: '0.5rem',
   },
   currentStudentDetails: {
@@ -890,23 +756,11 @@ const styles = {
     gap: '0.75rem',
     marginBottom: '1rem',
   },
-  sectionBadge: {
-    padding: '0.25rem 0.75rem',
-    background: '#F3F4F6',
-    borderRadius: '0.25rem',
-    fontSize: '0.875rem',
-    color: '#6B7280',
-  },
-  skipButton: {
-    marginTop: '0.5rem',
-  },
-  // hasStudent waiting state styles
   waitingCard: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     gap: '0.75rem',
-    padding: '1rem',
   },
   waitingIcon: {
     fontSize: '2.5rem',
@@ -915,16 +769,7 @@ const styles = {
   waitingText: {
     fontSize: '1rem',
     fontWeight: 600,
-    color: '#6B7280',
-  },
-  waitingHint: {
-    fontSize: '0.875rem',
-    color: '#9CA3AF',
-    marginBottom: '0.5rem',
-  },
-  nextStudentButton: {
-    marginTop: '0.5rem',
-    padding: '0.75rem 1.5rem',
+    color: COLORS.textMuted,
   },
   assignedBadge: {
     display: 'inline-block',
@@ -946,7 +791,7 @@ const styles = {
   },
   progressBar: {
     height: '8px',
-    background: 'rgba(0, 0, 0, 0.1)',
+    background: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
     borderRadius: '4px',
     overflow: 'hidden',
     marginBottom: '0.75rem',
@@ -961,13 +806,8 @@ const styles = {
     display: 'flex',
     justifyContent: 'center',
     gap: '1.5rem',
-    flexWrap: 'wrap',
-  },
-  progressStat: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.375rem',
     fontSize: '0.875rem',
+    fontWeight: 600,
   },
   sessionControls: {
     display: 'flex',
@@ -975,13 +815,12 @@ const styles = {
     gap: '1rem',
     flexWrap: 'wrap',
   },
-  // Manual Mode Styles
   summaryBar: {
     display: 'flex',
     alignItems: 'center',
     gap: '1.5rem',
     padding: '1rem 1.5rem',
-    background: 'rgba(255, 255, 255, 0.5)',
+    background: COLORS.summaryBg,
     borderRadius: '0.75rem',
     marginBottom: '1rem',
     flexWrap: 'wrap',
@@ -992,12 +831,12 @@ const styles = {
   },
   summaryLabel: {
     fontSize: '0.75rem',
-    color: '#6B7280',
+    color: COLORS.textMuted,
   },
   summaryValue: {
     fontSize: '1.25rem',
     fontWeight: 700,
-    color: '#1F2937',
+    color: COLORS.textPrimary,
   },
   summaryActions: {
     marginLeft: 'auto',
@@ -1006,6 +845,10 @@ const styles = {
   },
   studentList: {
     padding: '0.5rem',
+    background: COLORS.cardBg,
+    backdropFilter: 'blur(16px)',
+    border: `1px solid ${COLORS.cardBorder}`,
+    borderRadius: '1rem',
   },
   studentItem: {
     display: 'flex',
@@ -1019,11 +862,11 @@ const styles = {
     border: '2px solid transparent',
   },
   studentPresent: {
-    background: 'rgba(34, 197, 94, 0.08)',
+    background: isDark ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.08)',
     borderColor: 'rgba(34, 197, 94, 0.3)',
   },
   studentAbsent: {
-    background: 'rgba(239, 68, 68, 0.08)',
+    background: isDark ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.08)',
     borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   studentInfo: {
@@ -1037,7 +880,7 @@ const styles = {
   },
   studentName: {
     fontWeight: 500,
-    color: '#1F2937',
+    color: COLORS.textPrimary,
   },
   statusToggle: {
     padding: '0.375rem 0.875rem',
@@ -1060,5 +903,4 @@ const styles = {
   submitBtn: {
     minWidth: '280px',
   },
-};
-
+});

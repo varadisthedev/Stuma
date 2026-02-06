@@ -1,18 +1,41 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * Students Page
+ * Students Page - Dark Mode Compatible
  * Manage students - view list and add new students
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 import { useState, useEffect } from 'react';
 import { studentsAPI } from '../../services/api';
+import { useTheme } from '../../context/ThemeContext';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Modal from '../../components/ui/Modal';
 import Alert from '../../components/ui/Alert';
 
+// Dynamic colors based on theme
+const getColors = (isDark) => ({
+  primary: isDark ? '#60A5FA' : '#09416D',
+  primaryLight: isDark ? '#93C5FD' : '#0A5A94',
+  accent: isDark ? '#6366F1' : '#DBFCFF',
+  accentLight: isDark ? '#818CF8' : '#A8E8EF',
+  cardBg: isDark ? '#1E293B' : 'rgba(255, 255, 255, 0.65)',
+  cardBorder: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.4)',
+  tableBg: isDark ? '#1E293B' : 'rgba(255, 255, 255, 0.85)',
+  tableRowHover: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(9, 65, 109, 0.03)',
+  borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(180, 184, 197, 0.3)',
+  textPrimary: isDark ? '#F1F5F9' : '#1F2937',
+  textSecondary: isDark ? '#CBD5E1' : '#4B5563',
+  textMuted: isDark ? '#94A3B8' : '#6B7280',
+  textLight: isDark ? '#64748B' : '#9CA3AF',
+  avatarBg: isDark ? 'linear-gradient(135deg, #6366F1 0%, #818CF8 100%)' : 'linear-gradient(135deg, #DBFCFF 0%, #A8E8EF 100%)',
+  avatarText: isDark ? '#FFFFFF' : '#09416D',
+});
+
 export default function StudentsPage() {
+  const { isDarkMode } = useTheme();
+  const COLORS = getColors(isDarkMode);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [students, setStudents] = useState([]);
   const [error, setError] = useState('');
@@ -25,16 +48,10 @@ export default function StudentsPage() {
   const [formData, setFormData] = useState({ name: '', rollNo: '' });
   const [formError, setFormError] = useState('');
 
-  /**
-   * Load students on mount
-   */
   useEffect(() => {
     loadStudents();
   }, []);
 
-  /**
-   * Fetch all students
-   */
   const loadStudents = async () => {
     console.log('[STUDENTS] Loading students');
     setIsLoading(true);
@@ -52,18 +69,12 @@ export default function StudentsPage() {
     setIsLoading(false);
   };
 
-  /**
-   * Handle form input change
-   */
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
     setFormError('');
   };
 
-  /**
-   * Handle form submit
-   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
@@ -91,13 +102,12 @@ export default function StudentsPage() {
     setIsSubmitting(false);
   };
 
-  /**
-   * Filter students by search term
-   */
   const filteredStudents = students.filter((student) =>
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.rollNo.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const styles = getStyles(COLORS, isDarkMode);
 
   if (isLoading) {
     return <LoadingSpinner message="Loading students..." />;
@@ -126,7 +136,7 @@ export default function StudentsPage() {
 
       {/* Empty State */}
       {students.length === 0 ? (
-        <div className="glass-card-static" style={{ padding: '2rem' }}>
+        <div style={styles.emptyCard}>
           <EmptyState
             icon="◎"
             title="No students yet"
@@ -138,7 +148,7 @@ export default function StudentsPage() {
       ) : (
         <>
           {/* Search Bar */}
-          <div className="glass-card-static" style={styles.searchCard}>
+          <div style={styles.searchCard}>
             <input
               type="text"
               className="form-input"
@@ -150,26 +160,33 @@ export default function StudentsPage() {
           </div>
 
           {/* Students Table */}
-          <div className="glass-card-static" style={styles.tableCard}>
+          <div style={styles.tableCard}>
             <div className="table-container">
               <table className="table">
                 <thead>
                   <tr>
-                    <th style={{ width: '80px' }}>Roll No</th>
-                    <th>Name</th>
-                    <th style={{ width: '180px' }}>Added On</th>
+                    <th style={{ width: '80px', color: COLORS.textMuted }}>Roll No</th>
+                    <th style={{ color: COLORS.textMuted }}>Name</th>
+                    <th style={{ width: '180px', color: COLORS.textMuted }}>Added On</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={3} style={{ textAlign: 'center', padding: '2rem' }}>
+                      <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: COLORS.textMuted }}>
                         No students match your search
                       </td>
                     </tr>
                   ) : (
                     filteredStudents.map((student, index) => (
-                      <tr key={student._id} className="animate-fade-in" style={{ animationDelay: `${index * 30}ms` }}>
+                      <tr 
+                        key={student._id} 
+                        className="animate-fade-in" 
+                        style={{ 
+                          animationDelay: `${index * 30}ms`,
+                          borderBottom: `1px solid ${COLORS.borderColor}`,
+                        }}
+                      >
                         <td>
                           <span className="badge badge-primary">{student.rollNo}</span>
                         </td>
@@ -178,10 +195,10 @@ export default function StudentsPage() {
                             <div style={styles.avatar}>
                               {student.name.charAt(0).toUpperCase()}
                             </div>
-                            <span>{student.name}</span>
+                            <span style={{ color: COLORS.textPrimary }}>{student.name}</span>
                           </div>
                         </td>
-                        <td style={{ color: '#6B7280' }}>
+                        <td style={{ color: COLORS.textMuted }}>
                           {new Date(student.createdAt).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
@@ -251,7 +268,7 @@ export default function StudentsPage() {
               required
               minLength={1}
             />
-            <small style={{ color: '#6B7280', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
+            <small style={{ color: COLORS.textMuted, fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
               Roll numbers must be unique
             </small>
           </div>
@@ -261,7 +278,7 @@ export default function StudentsPage() {
   );
 }
 
-const styles = {
+const getStyles = (COLORS, isDark) => ({
   header: {
     display: 'flex',
     alignItems: 'flex-start',
@@ -272,9 +289,24 @@ const styles = {
   searchCard: {
     padding: '1rem',
     marginBottom: '1rem',
+    background: COLORS.cardBg,
+    backdropFilter: 'blur(16px)',
+    border: `1px solid ${COLORS.cardBorder}`,
+    borderRadius: '1rem',
   },
   tableCard: {
     padding: '0.5rem',
+    background: COLORS.tableBg,
+    backdropFilter: 'blur(16px)',
+    border: `1px solid ${COLORS.cardBorder}`,
+    borderRadius: '1rem',
+  },
+  emptyCard: {
+    padding: '2rem',
+    background: COLORS.cardBg,
+    backdropFilter: 'blur(16px)',
+    border: `1px solid ${COLORS.cardBorder}`,
+    borderRadius: '1rem',
   },
   studentName: {
     display: 'flex',
@@ -282,15 +314,15 @@ const styles = {
     gap: '0.75rem',
   },
   avatar: {
-    width: '32px',
-    height: '32px',
-    background: 'linear-gradient(135deg, #DBFCFF 0%, #A8E8EF 100%)',
+    width: '36px',
+    height: '36px',
+    background: COLORS.avatarBg,
     borderRadius: '50%',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#09416D',
+    color: COLORS.avatarText,
     fontWeight: 600,
     fontSize: '0.875rem',
   },
-};
+});

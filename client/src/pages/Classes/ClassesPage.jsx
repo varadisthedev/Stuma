@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * Classes Page
+ * Classes Page - Dark Mode Compatible
  * Manage timetable - view, add, and organize classes
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -9,12 +9,33 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { classesAPI } from '../../services/api';
 import { formatTime, getDaysOfWeek, groupBy } from '../../utils/helpers';
+import { useTheme } from '../../context/ThemeContext';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Modal from '../../components/ui/Modal';
 import Alert from '../../components/ui/Alert';
 
+// Dynamic colors based on theme
+const getColors = (isDark) => ({
+  primary: isDark ? '#60A5FA' : '#09416D',
+  primaryLight: isDark ? '#93C5FD' : '#0A5A94',
+  accent: isDark ? '#6366F1' : '#DBFCFF',
+  accentBorder: isDark ? '#818CF8' : '#A8E8EF',
+  cardBg: isDark ? '#1E293B' : 'rgba(255, 255, 255, 0.65)',
+  cardBorder: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.4)',
+  itemBg: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(180, 184, 197, 0.1)',
+  itemHover: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(180, 184, 197, 0.2)',
+  borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(180, 184, 197, 0.3)',
+  textPrimary: isDark ? '#F1F5F9' : '#1F2937',
+  textSecondary: isDark ? '#CBD5E1' : '#4B5563',
+  textMuted: isDark ? '#94A3B8' : '#6B7280',
+  textLight: isDark ? '#64748B' : '#9CA3AF',
+});
+
 export default function ClassesPage() {
+  const { isDarkMode } = useTheme();
+  const COLORS = getColors(isDarkMode);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [classes, setClasses] = useState([]);
   const [error, setError] = useState('');
@@ -31,16 +52,10 @@ export default function ClassesPage() {
   });
   const [formError, setFormError] = useState('');
 
-  /**
-   * Load classes on mount
-   */
   useEffect(() => {
     loadClasses();
   }, []);
 
-  /**
-   * Fetch all classes
-   */
   const loadClasses = async () => {
     console.log('[CLASSES] Loading classes');
     setIsLoading(true);
@@ -58,18 +73,12 @@ export default function ClassesPage() {
     setIsLoading(false);
   };
 
-  /**
-   * Handle form input change
-   */
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
     setFormError('');
   };
 
-  /**
-   * Handle form submit
-   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
@@ -77,7 +86,6 @@ export default function ClassesPage() {
 
     console.log('[CLASSES] Creating class:', formData);
 
-    // Validate time
     if (formData.startTime >= formData.endTime) {
       setFormError('End time must be after start time');
       setIsSubmitting(false);
@@ -99,7 +107,6 @@ export default function ClassesPage() {
         });
         loadClasses();
         
-        // Clear success after 3s
         setTimeout(() => setSuccess(''), 3000);
       }
     } catch (err) {
@@ -110,11 +117,10 @@ export default function ClassesPage() {
     setIsSubmitting(false);
   };
 
-  /**
-   * Group classes by day
-   */
   const classesByDay = groupBy(classes, 'day');
   const days = getDaysOfWeek();
+
+  const styles = getStyles(COLORS, isDarkMode);
 
   if (isLoading) {
     return <LoadingSpinner message="Loading classes..." />;
@@ -141,7 +147,7 @@ export default function ClassesPage() {
 
       {/* Empty State */}
       {classes.length === 0 ? (
-        <div className="glass-card-static" style={{ padding: '2rem' }}>
+        <div style={styles.emptyCard}>
           <EmptyState
             icon="◫"
             title="No classes yet"
@@ -154,7 +160,7 @@ export default function ClassesPage() {
         /* Timetable Grid */
         <div style={styles.timetableGrid}>
           {days.map((day) => (
-            <div key={day} className="glass-card-static" style={styles.dayCard}>
+            <div key={day} style={styles.dayCard}>
               <div style={styles.dayHeader}>
                 <h3 style={styles.dayName}>{day}</h3>
                 <span style={styles.classCount}>
@@ -286,7 +292,7 @@ export default function ClassesPage() {
   );
 }
 
-const styles = {
+const getStyles = (COLORS, isDark) => ({
   header: {
     display: 'flex',
     alignItems: 'flex-start',
@@ -300,7 +306,19 @@ const styles = {
     gap: '1rem',
   },
   dayCard: {
-    padding: '1rem',
+    padding: '1.25rem',
+    background: COLORS.cardBg,
+    backdropFilter: 'blur(16px)',
+    border: `1px solid ${COLORS.cardBorder}`,
+    borderRadius: '1rem',
+    boxShadow: isDark ? '0 8px 32px rgba(0, 0, 0, 0.3)' : '0 8px 32px rgba(9, 65, 109, 0.12)',
+  },
+  emptyCard: {
+    padding: '2rem',
+    background: COLORS.cardBg,
+    backdropFilter: 'blur(16px)',
+    border: `1px solid ${COLORS.cardBorder}`,
+    borderRadius: '1rem',
   },
   dayHeader: {
     display: 'flex',
@@ -308,16 +326,17 @@ const styles = {
     justifyContent: 'space-between',
     marginBottom: '1rem',
     paddingBottom: '0.75rem',
-    borderBottom: '1px solid rgba(180, 184, 197, 0.3)',
+    borderBottom: `1px solid ${COLORS.borderColor}`,
   },
   dayName: {
     fontSize: '1rem',
     fontWeight: 600,
-    color: '#09416D',
+    color: COLORS.primary,
+    margin: 0,
   },
   classCount: {
     fontSize: '0.75rem',
-    color: '#6B7280',
+    color: COLORS.textMuted,
   },
   classList: {
     display: 'flex',
@@ -325,19 +344,19 @@ const styles = {
     gap: '0.5rem',
   },
   classItem: {
-    padding: '0.75rem',
-    background: 'rgba(180, 184, 197, 0.1)',
+    padding: '0.875rem',
+    background: COLORS.itemBg,
     borderRadius: '0.5rem',
     transition: 'all 150ms ease',
   },
   classTime: {
     fontSize: '0.75rem',
-    color: '#6B7280',
+    color: COLORS.textMuted,
     marginBottom: '0.25rem',
   },
   classSubject: {
     fontWeight: 600,
-    color: '#1F2937',
+    color: COLORS.textPrimary,
     marginBottom: '0.5rem',
   },
   classActions: {
@@ -349,11 +368,11 @@ const styles = {
     textAlign: 'center',
   },
   emptyDayText: {
-    color: '#9CA3AF',
+    color: COLORS.textLight,
     fontSize: '0.875rem',
   },
   timeRow: {
     display: 'flex',
     gap: '1rem',
   },
-};
+});

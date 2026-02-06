@@ -1,40 +1,56 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * Analytics Page - Clean & Readable Design
- * View attendance statistics, charts, and AI-powered insights
+ * Analytics Page - Dual Mode Design
+ * View attendance statistics with Individual Daily or Overall Trends modes
+ * Features GitHub-style heatmap for individual roll number attendance
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement, Filler } from 'chart.js';
-import { Doughnut, Bar } from 'react-chartjs-2';
+import { Doughnut, Line, Bar } from 'react-chartjs-2';
 import { classesAPI, attendanceAPI } from '../../services/api';
 import { formatTime } from '../../utils/helpers';
+import { useTheme } from '../../context/ThemeContext';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Alert from '../../components/ui/Alert';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement, Filler);
 
-// Clean color palette
-const COLORS = {
-  primary: '#09416D',
-  accent: '#DBFCFF',
-  accentBorder: '#A8E8EF',
-  gray100: '#F8FAFC',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray500: '#6B7280',
-  gray700: '#374151',
-  gray900: '#1F2937',
-  white: '#FFFFFF',
+// Dynamic color palette based on theme
+const getColors = (isDark) => ({
+  primary: isDark ? '#60A5FA' : '#09416D',
+  accent: isDark ? '#6366F1' : '#DBFCFF',
+  accentBorder: isDark ? '#818CF8' : '#A8E8EF',
+  gray100: isDark ? '#1E293B' : '#F8FAFC',
+  gray200: isDark ? '#334155' : '#E5E7EB',
+  gray300: isDark ? '#475569' : '#D1D5DB',
+  gray500: isDark ? '#94A3B8' : '#6B7280',
+  gray700: isDark ? '#CBD5E1' : '#374151',
+  gray900: isDark ? '#F1F5F9' : '#1F2937',
+  white: isDark ? '#1E293B' : '#FFFFFF',
+  cardBg: isDark ? '#1E293B' : '#FFFFFF',
+  surfaceBg: isDark ? '#0F172A' : '#F8FAFC',
+});
+
+// Heatmap color scale (light to dark for attendance percentage)
+const getHeatmapColor = (percent, isDark) => {
+  if (percent === 0) return isDark ? '#1E293B' : '#EBEDF0';
+  if (percent < 25) return isDark ? '#0E4429' : '#9BE9A8';
+  if (percent < 50) return isDark ? '#006D32' : '#40C463';
+  if (percent < 75) return isDark ? '#26A641' : '#30A14E';
+  if (percent < 100) return isDark ? '#39D353' : '#216E39';
+  return isDark ? '#39D353' : '#09416D'; // 100%
 };
 
 export default function AnalyticsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedClassId = searchParams.get('classId');
+  const { isDarkMode } = useTheme();
+  const COLORS = getColors(isDarkMode);
 
   const [isLoading, setIsLoading] = useState(true);
   const [classes, setClasses] = useState([]);
@@ -45,6 +61,9 @@ export default function AnalyticsPage() {
   const [aiInsights, setAiInsights] = useState('');
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [aiError, setAiError] = useState('');
+
+  // View mode: 'individual' or 'overall'
+  const [viewMode, setViewMode] = useState('individual');
 
   const [expandedSections, setExpandedSections] = useState({
     critical: false,
@@ -97,7 +116,6 @@ export default function AnalyticsPage() {
     setIsLoadingAI(true);
     setAiError('');
     try {
-      // Backend now handles the Gemini API call and returns the AI response
       const insightsResponse = await attendanceAPI.getAIInsights(selectedClassId);
       if (insightsResponse.success && insightsResponse.text) {
         setAiInsights(insightsResponse.text);
@@ -155,41 +173,73 @@ export default function AnalyticsPage() {
     };
   };
 
-  // Distribution chart - shows how many students fall into each attendance range
-  const getDistributionData = () => {
+  // Overall trend line chart
+  const getTrendData = () => {
     if (!analytics?.stats?.length) return null;
     
-    // Define attendance ranges
-    const ranges = [
-      { label: '0%', min: 0, max: 0, color: '#DC2626' },
-      { label: '1-25%', min: 1, max: 25, color: '#EF4444' },
-      { label: '26-50%', min: 26, max: 50, color: '#F97316' },
-      { label: '51-74%', min: 51, max: 74, color: '#F59E0B' },
-      { label: '75-89%', min: 75, max: 89, color: '#22C55E' },
-      { label: '90-99%', min: 90, max: 99, color: '#16A34A' },
-      { label: '100%', min: 100, max: 100, color: COLORS.primary },
-    ];
+    // Sort students by attendance percentage
+    const sortedStudents = [...analytics.stats].sort((a, b) => b.percent - a.percent);
     
-    // Count students in each range
-    const counts = ranges.map(range => {
-      const count = analytics.stats.filter(s => 
-        s.percent >= range.min && s.percent <= range.max
-      ).length;
-      return count;
-    });
+    // Create trend data showing cumulative distribution
+    const labels = sortedStudents.map(s => s.rollNo);
+    const data = sortedStudents.map(s => s.percent);
     
     return {
-      labels: ranges.map(r => r.label),
+      labels,
       datasets: [{
-        label: 'Number of Students',
-        data: counts,
-        backgroundColor: ranges.map(r => r.color),
-        borderRadius: 6,
-        barThickness: 40,
+        label: 'Attendance %',
+        data,
+        fill: true,
+        backgroundColor: isDarkMode 
+          ? 'rgba(96, 165, 250, 0.2)' 
+          : 'rgba(9, 65, 109, 0.1)',
+        borderColor: COLORS.primary,
+        borderWidth: 2,
+        tension: 0.4,
+        pointRadius: 3,
+        pointBackgroundColor: COLORS.primary,
       }],
-      _ranges: ranges,
-      _counts: counts,
     };
+  };
+
+  // Weekly trend for overall view
+  const getWeeklyTrendData = () => {
+    if (!analytics?.dailyRecords?.length) return null;
+    
+    const records = analytics.dailyRecords.slice(-10); // Last 10 records
+    
+    return {
+      labels: records.map(r => new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+      datasets: [{
+        label: 'Attendance Rate',
+        data: records.map(r => Math.round((r.presentCount / r.totalStudents) * 100)),
+        fill: true,
+        backgroundColor: isDarkMode 
+          ? 'rgba(99, 102, 241, 0.2)' 
+          : 'rgba(219, 252, 255, 0.5)',
+        borderColor: COLORS.primary,
+        borderWidth: 2,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: COLORS.primary,
+      }],
+    };
+  };
+
+  // Heatmap data for individual view
+  const getHeatmapData = () => {
+    if (!analytics?.stats?.length) return null;
+    
+    const filteredStats = filterBySection(analytics.stats);
+    
+    // Sort by roll number
+    const sortedStats = [...filteredStats].sort((a, b) => {
+      const rollA = a.rollNo || '';
+      const rollB = b.rollNo || '';
+      return rollA.localeCompare(rollB);
+    });
+    
+    return sortedStats;
   };
 
   if (isLoading) {
@@ -198,9 +248,9 @@ export default function AnalyticsPage() {
 
   if (classes.length === 0) {
     return (
-      <div style={styles.container}>
-        <h1 style={styles.pageTitle}>Analytics</h1>
-        <div style={styles.card}>
+      <div style={getStyles(COLORS).container}>
+        <h1 style={getStyles(COLORS).pageTitle}>Analytics</h1>
+        <div style={getStyles(COLORS).card}>
           <EmptyState
             icon="◈"
             title="No classes available"
@@ -214,9 +264,7 @@ export default function AnalyticsPage() {
   }
 
   const availableSections = getAvailableSections();
-  const allStudentsSorted = analytics?.stats 
-    ? [...analytics.stats].sort((a, b) => b.percent - a.percent)
-    : [];
+  const styles = getStyles(COLORS);
 
   return (
     <div style={styles.container}>
@@ -228,18 +276,36 @@ export default function AnalyticsPage() {
             {selectedClass ? `${selectedClass.subject} • ${selectedClass.day}` : 'Select a class'}
           </p>
         </div>
-        <select
-          style={styles.classSelect}
-          value={selectedClassId}
-          onChange={(e) => setSelectedClassId(e.target.value)}
-        >
-          <option value="">-- Select a class --</option>
-          {classes.map((cls) => (
-            <option key={cls._id} value={cls._id}>
-              {cls.subject} ({cls.day}, {formatTime(cls.startTime)})
-            </option>
-          ))}
-        </select>
+        <div style={styles.headerControls}>
+          {/* View Mode Toggle */}
+          <div className="analytics-mode-toggle">
+            <button
+              className={`analytics-mode-btn ${viewMode === 'individual' ? 'active' : ''}`}
+              onClick={() => setViewMode('individual')}
+            >
+              📊 Individual Daily
+            </button>
+            <button
+              className={`analytics-mode-btn ${viewMode === 'overall' ? 'active' : ''}`}
+              onClick={() => setViewMode('overall')}
+            >
+              📈 Overall Trends
+            </button>
+          </div>
+          
+          <select
+            style={styles.classSelect}
+            value={selectedClassId}
+            onChange={(e) => setSelectedClassId(e.target.value)}
+          >
+            <option value="">-- Select a class --</option>
+            {classes.map((cls) => (
+              <option key={cls._id} value={cls._id}>
+                {cls.subject} ({cls.day}, {formatTime(cls.startTime)})
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {error && <Alert type="error" message={error} />}
@@ -261,7 +327,7 @@ export default function AnalyticsPage() {
         </div>
       ) : analytics ? (
         <>
-          {/* Stats Row - Clean white cards with accent border */}
+          {/* Stats Row - Clean cards */}
           <div style={styles.statsRow}>
             <div style={styles.statCard}>
               <div style={styles.statNumber}>{analytics.totalDays}</div>
@@ -272,7 +338,7 @@ export default function AnalyticsPage() {
               <div style={styles.statLabel}>Perfect (100%)</div>
             </div>
             <div style={{...styles.statCard, borderLeftColor: COLORS.accentBorder}}>
-              <div style={{...styles.statNumber, color: '#0891B2'}}>{analytics.categories?.above75?.count || 0}</div>
+              <div style={{...styles.statNumber, color: isDarkMode ? '#818CF8' : '#0891B2'}}>{analytics.categories?.above75?.count || 0}</div>
               <div style={styles.statLabel}>Good (75-99%)</div>
             </div>
             <div style={{...styles.statCard, borderLeftColor: COLORS.gray300}}>
@@ -281,118 +347,266 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          {/* Two Column Layout */}
-          <div style={styles.twoColumn}>
-            {/* Left - Doughnut Chart */}
-            <div style={styles.card}>
-              <h3 style={styles.cardTitle}>Attendance Overview</h3>
-              {getChartData() && (
-                <div style={styles.chartWrapper}>
-                  <Doughnut
-                    data={getChartData()}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: true,
-                      plugins: {
-                        legend: {
-                          position: 'bottom',
-                          labels: {
-                            padding: 16,
-                            usePointStyle: true,
-                            pointStyle: 'circle',
-                            font: { size: 12, family: 'Inter' },
+          {/* INDIVIDUAL VIEW MODE */}
+          {viewMode === 'individual' && (
+            <>
+              {/* Two Column Layout */}
+              <div style={styles.twoColumn}>
+                {/* Left - Doughnut Chart */}
+                <div style={styles.card}>
+                  <h3 style={styles.cardTitle}>Attendance Overview</h3>
+                  {getChartData() && (
+                    <div style={styles.chartWrapper}>
+                      <Doughnut
+                        data={getChartData()}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: true,
+                          plugins: {
+                            legend: {
+                              position: 'bottom',
+                              labels: {
+                                padding: 16,
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                font: { size: 12, family: 'Inter' },
+                                color: COLORS.gray700,
+                              },
+                            },
                           },
-                        },
-                      },
+                        }}
+                      />
+                      <div style={styles.chartCenter}>
+                        <span style={styles.chartCenterNumber}>{analytics.stats?.length || 0}</span>
+                        <span style={styles.chartCenterLabel}>Students</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right - GitHub-style Heatmap */}
+                <div style={styles.card}>
+                  <div style={styles.cardHeader}>
+                    <h3 style={styles.cardTitle}>Student Attendance Heatmap</h3>
+                    {availableSections.length > 0 && (
+                      <select
+                        style={styles.sectionSelect}
+                        value={selectedSection}
+                        onChange={(e) => setSelectedSection(e.target.value)}
+                      >
+                        <option value="all">All Sections</option>
+                        {availableSections.map(sec => (
+                          <option key={sec} value={sec}>Section {sec}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  <p style={styles.chartSubtext}>
+                    Each box represents a student • Darker = Higher attendance
+                  </p>
+                  
+                  {/* Heatmap Grid */}
+                  <div 
+                    className="heatmap-container"
+                    style={{
+                      gridTemplateColumns: `repeat(${Math.min(Math.ceil(Math.sqrt(getHeatmapData()?.length || 1) * 1.5), 15)}, 1fr)`,
                     }}
-                  />
-                  <div style={styles.chartCenter}>
-                    <span style={styles.chartCenterNumber}>{analytics.stats?.length || 0}</span>
-                    <span style={styles.chartCenterLabel}>Students</span>
+                  >
+                    {getHeatmapData()?.map((student, idx) => (
+                      <div
+                        key={student.studentId || idx}
+                        className="heatmap-cell"
+                        style={{
+                          backgroundColor: getHeatmapColor(student.percent, isDarkMode),
+                          color: student.percent > 50 ? '#FFFFFF' : (isDarkMode ? '#94A3B8' : '#374151'),
+                        }}
+                      >
+                        <span className="tooltip">
+                          {student.name} ({student.rollNo})<br/>
+                          {student.percent}% Attendance
+                        </span>
+                        {student.rollNo?.slice(-2) || ''}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Heatmap Legend */}
+                  <div className="heatmap-legend">
+                    <span className="heatmap-legend-label">Less</span>
+                    <div className="heatmap-legend-gradient">
+                      {[0, 25, 50, 75, 100].map(p => (
+                        <div
+                          key={p}
+                          className="heatmap-legend-box"
+                          style={{ backgroundColor: getHeatmapColor(p, isDarkMode) }}
+                        />
+                      ))}
+                    </div>
+                    <span className="heatmap-legend-label">More</span>
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Right - Attendance Distribution */}
-            <div style={styles.card}>
-              <div style={styles.cardHeader}>
-                <h3 style={styles.cardTitle}>Attendance Distribution</h3>
-                <span style={styles.chartNote}>
-                  {analytics.stats?.length || 0} students total
-                </span>
               </div>
-              <p style={styles.chartSubtext}>
-                Number of students in each attendance range
-              </p>
-              {getDistributionData() && (
-                <div style={styles.barChartWrapper}>
-                  <Bar
-                    data={getDistributionData()}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          display: false,
-                        },
-                        tooltip: {
-                          backgroundColor: COLORS.gray900,
-                          titleFont: { size: 13, weight: 'bold' },
-                          bodyFont: { size: 12 },
-                          padding: 12,
-                          callbacks: {
-                            title: (items) => {
-                              return `${items[0].label} Attendance`;
-                            },
-                            label: (item) => {
-                              const total = analytics.stats?.length || 1;
-                              const percent = Math.round((item.raw / total) * 100);
-                              return `${item.raw} students (${percent}% of class)`;
-                            },
-                          },
-                        },
-                      },
-                      scales: {
-                        y: {
-                          beginAtZero: true,
-                          ticks: {
-                            stepSize: 10,
-                            font: { size: 11 },
-                          },
-                          grid: {
-                            color: COLORS.gray100,
-                          },
-                          title: {
-                            display: true,
-                            text: 'Number of Students',
-                            font: { size: 11, weight: '500' },
-                            color: COLORS.gray500,
-                          },
-                        },
-                        x: {
-                          ticks: {
-                            font: { size: 11, weight: '500' },
-                          },
-                          grid: {
-                            display: false,
-                          },
-                          title: {
-                            display: true,
-                            text: 'Attendance Range',
-                            font: { size: 11, weight: '500' },
-                            color: COLORS.gray500,
-                          },
-                        },
-                      },
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+            </>
+          )}
 
-          {/* AI Insights */}
+          {/* OVERALL VIEW MODE */}
+          {viewMode === 'overall' && (
+            <>
+              {/* Two Column Layout for Overall View */}
+              <div style={styles.twoColumn}>
+                {/* Left - Trend Line Chart */}
+                <div style={styles.card}>
+                  <h3 style={styles.cardTitle}>Student Attendance Ranking</h3>
+                  <p style={styles.chartSubtext}>
+                    All students sorted by attendance percentage
+                  </p>
+                  {getTrendData() && (
+                    <div style={styles.lineChartWrapper}>
+                      <Line
+                        data={getTrendData()}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                              backgroundColor: COLORS.gray900,
+                              titleFont: { size: 13, weight: 'bold' },
+                              bodyFont: { size: 12 },
+                              padding: 12,
+                            },
+                          },
+                          scales: {
+                            y: {
+                              min: 0,
+                              max: 100,
+                              ticks: {
+                                callback: (val) => `${val}%`,
+                                font: { size: 11 },
+                                color: COLORS.gray500,
+                              },
+                              grid: { color: COLORS.gray200 },
+                            },
+                            x: {
+                              display: false,
+                            },
+                          },
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Right - Daily Trend */}
+                <div style={styles.card}>
+                  <h3 style={styles.cardTitle}>Class Attendance Trend</h3>
+                  <p style={styles.chartSubtext}>
+                    Daily attendance rate over recent classes
+                  </p>
+                  {getWeeklyTrendData() ? (
+                    <div style={styles.lineChartWrapper}>
+                      <Line
+                        data={getWeeklyTrendData()}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                              backgroundColor: COLORS.gray900,
+                              callbacks: {
+                                label: (item) => `${item.raw}% present`,
+                              },
+                            },
+                          },
+                          scales: {
+                            y: {
+                              min: 0,
+                              max: 100,
+                              ticks: {
+                                callback: (val) => `${val}%`,
+                                font: { size: 11 },
+                                color: COLORS.gray500,
+                              },
+                              grid: { color: COLORS.gray200 },
+                            },
+                            x: {
+                              ticks: {
+                                font: { size: 10 },
+                                color: COLORS.gray500,
+                              },
+                              grid: { display: false },
+                            },
+                          },
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div style={styles.noDataPlaceholder}>
+                      <p>No daily records available</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Distribution Bar Chart for Overall View */}
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <h3 style={styles.cardTitle}>Attendance Distribution</h3>
+                  <span style={styles.chartNote}>
+                    {analytics.stats?.length || 0} students total
+                  </span>
+                </div>
+                <p style={styles.chartSubtext}>
+                  Number of students in each attendance range
+                </p>
+                {analytics?.stats?.length > 0 && (
+                  <div style={styles.barChartWrapper}>
+                    <Bar
+                      data={{
+                        labels: ['0%', '1-25%', '26-50%', '51-74%', '75-89%', '90-99%', '100%'],
+                        datasets: [{
+                          label: 'Number of Students',
+                          data: [
+                            analytics.stats.filter(s => s.percent === 0).length,
+                            analytics.stats.filter(s => s.percent >= 1 && s.percent <= 25).length,
+                            analytics.stats.filter(s => s.percent >= 26 && s.percent <= 50).length,
+                            analytics.stats.filter(s => s.percent >= 51 && s.percent <= 74).length,
+                            analytics.stats.filter(s => s.percent >= 75 && s.percent <= 89).length,
+                            analytics.stats.filter(s => s.percent >= 90 && s.percent <= 99).length,
+                            analytics.stats.filter(s => s.percent === 100).length,
+                          ],
+                          backgroundColor: [
+                            '#DC2626', '#EF4444', '#F97316', '#F59E0B', '#22C55E', '#16A34A', COLORS.primary
+                          ],
+                          borderRadius: 6,
+                          barThickness: 40,
+                        }],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            ticks: { font: { size: 11 }, color: COLORS.gray500 },
+                            grid: { color: COLORS.gray200 },
+                          },
+                          x: {
+                            ticks: { font: { size: 11 }, color: COLORS.gray500 },
+                            grid: { display: false },
+                          },
+                        },
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* AI Insights - Available in both modes */}
           <div style={styles.aiCard}>
             <div style={styles.aiHeader}>
               <span style={styles.aiIcon}>✨</span>
@@ -493,7 +707,7 @@ export default function AnalyticsPage() {
                       <div key={s.studentId} style={styles.breakdownItem}>
                         <span style={styles.breakdownName}>{s.name}</span>
                         <span style={styles.breakdownRoll}>{s.rollNo}</span>
-                        <span style={{...styles.breakdownPercent, color: '#0891B2'}}>{s.percent}%</span>
+                        <span style={{...styles.breakdownPercent, color: isDarkMode ? '#818CF8' : '#0891B2'}}>{s.percent}%</span>
                       </div>
                     ))}
                   </div>
@@ -540,7 +754,7 @@ export default function AnalyticsPage() {
   );
 }
 
-const styles = {
+const getStyles = (COLORS) => ({
   container: {
     maxWidth: '1200px',
     margin: '0 auto',
@@ -554,6 +768,12 @@ const styles = {
     marginBottom: '24px',
     flexWrap: 'wrap',
     gap: '16px',
+  },
+  headerControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    flexWrap: 'wrap',
   },
   pageTitle: {
     fontSize: '1.75rem',
@@ -588,6 +808,7 @@ const styles = {
     padding: '60px 40px',
     textAlign: 'center',
     border: `1px solid ${COLORS.gray200}`,
+    color: COLORS.gray500,
   },
   placeholderIcon: {
     fontSize: '3rem',
@@ -675,9 +896,13 @@ const styles = {
     color: COLORS.gray500,
   },
 
-  // Bar Chart
+  // Line/Bar Chart
+  lineChartWrapper: {
+    height: '300px',
+    padding: '8px 0',
+  },
   barChartWrapper: {
-    height: '400px',
+    height: '300px',
     padding: '8px 0',
   },
   chartNote: {
@@ -690,73 +915,12 @@ const styles = {
     color: COLORS.gray500,
     margin: '0 0 16px 0',
   },
-  legendRow: {
-    display: 'flex',
-    gap: '16px',
-    marginBottom: '12px',
-    flexWrap: 'wrap',
-  },
-  legendItem: {
+  noDataPlaceholder: {
+    height: '200px',
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
-    fontSize: '0.75rem',
+    justifyContent: 'center',
     color: COLORS.gray500,
-  },
-  legendDot: {
-    width: '10px',
-    height: '10px',
-    borderRadius: '50%',
-  },
-
-  // Student List
-  studentList: {
-    maxHeight: '400px',
-    overflowY: 'auto',
-  },
-  studentRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '10px 0',
-    borderBottom: `1px solid ${COLORS.gray100}`,
-  },
-  studentInfo: {
-    flex: '0 0 45%',
-  },
-  studentName: {
-    display: 'block',
-    fontSize: '0.875rem',
-    fontWeight: 500,
-    color: COLORS.gray900,
-  },
-  studentRoll: {
-    fontSize: '0.75rem',
-    color: COLORS.gray500,
-  },
-  progressWrapper: {
-    flex: '0 0 50%',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  progressBar: {
-    flex: 1,
-    height: '8px',
-    background: COLORS.gray100,
-    borderRadius: '4px',
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: '4px',
-    transition: 'width 0.3s ease',
-  },
-  percentText: {
-    fontSize: '0.8125rem',
-    fontWeight: 600,
-    minWidth: '40px',
-    textAlign: 'right',
   },
 
   // Section Select
@@ -885,4 +1049,4 @@ const styles = {
     fontWeight: 600,
     textAlign: 'right',
   },
-};
+});
