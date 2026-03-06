@@ -1,10 +1,11 @@
 /**
- * FINAL CSV → MongoDB Attendance Import Script
- * -------------------------------------------
- * - Auto creates Teacher, Class, Students
- * - Imports attendance date-wise
- * - Idempotent (safe to re-run)
- * - Highly debuggable via logs
+ * FINAL CSV → MongoDB Import Script
+ * --------------------------------
+ * - Imports students
+ * - Optionally imports attendance (if date columns exist)
+ * - Teacher ownership enforced
+ * - Section-safe
+ * - Idempotent
  */
 
 require("dotenv").config();
@@ -22,39 +23,37 @@ const Attendance = require("../models/Attendance");
 // ---------------------------------------------
 // CONFIG
 // ---------------------------------------------
-const CSV_FILE_NAME = "b2.csv"; // 👈 your CSV file name
+const CSV_FILE_NAME = "PIC.csv";
 const CLASS_SECTION = "B2";
+const TEACHER_EMAIL = "rasikar@rknec.edu"; // 👈 MUST exist in DB
 
 // ---------------------------------------------
 // CONNECT DB
 // ---------------------------------------------
 console.log("[DB] Connecting to:", process.env.MONGO_URI);
-mongoose.connect(process.env.MONGO_URI);
+const monogoURI = process.env.MONGO_URI.toString();
+mongoose.connect(monogoURI);
 
 // ---------------------------------------------
 // HELPERS
 // ---------------------------------------------
 const parseDate = (dateStr) => {
   const [dd, mm, yy] = dateStr.split("/");
-  const year = yy.length === 2 ? "20" + yy : yy;
+  const year = yy.length === 2 ? `20${yy}` : yy;
   return new Date(`${year}-${mm}-${dd}`);
 };
 
 // ---------------------------------------------
 // SETUP TEACHER & CLASS
 // ---------------------------------------------
-const getOrCreateTeacherAndClass = async () => {
-  let teacher = await Teacher.findOne({ email: "imported.teacher@local" });
+const getTeacherAndClass = async () => {
+  const teacher = await Teacher.findOne({ email: TEACHER_EMAIL });
 
   if (!teacher) {
-    teacher = await Teacher.create({
-      name: "Imported Teacher",
-      email: "imported.teacher@local",
-      password: "import_dummy_password",
-    });
-    console.log("[SETUP] Teacher created");
-  } else {
-    console.log("[SETUP] Teacher found");
+    console.error(
+      `[ERROR] Teacher ${TEACHER_EMAIL} not found. Create account first.`,
+    );
+    process.exit(1);
   }
 
   let cls = await Class.findOne({
@@ -99,16 +98,19 @@ const runImport = async () => {
     .on("end", async () => {
       console.log(`[CSV] Loaded ${rows.length} rows`);
 
-      const { teacherId, classId } = await getOrCreateTeacherAndClass();
+      const { teacherId, classId } = await getTeacherAndClass();
 
-      // -----------------------------------------
-      // FIND DATE COLUMNS
-      // -----------------------------------------
       const dateColumns = Object.keys(rows[0]).filter((key) =>
         key.includes("/"),
       );
 
       console.log("[CSV] Date columns found:", dateColumns.length);
+
+      if (dateColumns.length === 0) {
+        console.log(
+          "[INFO] No date columns found. Running student-only import.",
+        );
+      }
 
       // -----------------------------------------
       // CREATE / MAP STUDENTS
@@ -127,70 +129,60 @@ const runImport = async () => {
         });
 
         if (!student) {
-          try {
-            student = await Student.create({
-              name,
-              rollNo,
-              section,
-              teacher: teacherId,
-            });
-            console.log(`[STUDENT] Created: ${name}`);
-          } catch (err) {
-            if (err.code === 11000) {
-              student = await Student.findOne({
-                rollNo,
-                teacher: teacherId,
-              });
-              console.log(`[STUDENT] Exists: ${name}`);
-            } else {
-              throw err;
-            }
-          }
+          student = await Student.create({
+            name,
+            rollNo,
+            section,
+            teacher: teacherId,
+          });
+          console.log(`[STUDENT] Created: ${name}`);
         } else {
           console.log(`[STUDENT] Exists: ${name}`);
         }
 
-        studentsMap[rollNo] = student._id;
+        studentsMap[`${rollNo}-${section}`] = student._id;
       }
 
       console.log("[STUDENT] Mapping complete");
 
       // -----------------------------------------
-      // CREATE ATTENDANCE
+      // CREATE ATTENDANCE (ONLY IF DATES EXIST)
       // -----------------------------------------
-      for (const dateCol of dateColumns) {
-        const records = [];
+      if (dateColumns.length > 0) {
+        for (const dateCol of dateColumns) {
+          const records = [];
 
-        rows.forEach((row) => {
-          const status = row[dateCol];
-          if (!status) return;
+          rows.forEach((row) => {
+            const status = row[dateCol];
+            if (!status) return;
 
-          records.push({
-            student: studentsMap[row["Roll No"]],
-            status: status.toLowerCase(),
+            records.push({
+              student: studentsMap[`${row["Roll No"]}-${row["Section"]}`],
+              status: status.toLowerCase(),
+            });
           });
-        });
 
-        const date = parseDate(dateCol);
+          const date = parseDate(dateCol);
 
-        const exists = await Attendance.findOne({
-          class: classId,
-          date,
-        });
+          const exists = await Attendance.findOne({
+            class: classId,
+            date,
+          });
 
-        if (exists) {
-          console.log(`[SKIP] Attendance already exists for ${dateCol}`);
-          continue;
+          if (exists) {
+            console.log(`[SKIP] Attendance already exists for ${dateCol}`);
+            continue;
+          }
+
+          await Attendance.create({
+            class: classId,
+            teacher: teacherId,
+            date,
+            records,
+          });
+
+          console.log(`[ATTENDANCE] Saved for ${dateCol}`);
         }
-
-        await Attendance.create({
-          class: classId,
-          teacher: teacherId,
-          date,
-          records,
-        });
-
-        console.log(`[ATTENDANCE] Saved for ${dateCol}`);
       }
 
       console.log("✅ IMPORT COMPLETE");

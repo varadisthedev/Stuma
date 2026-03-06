@@ -3,6 +3,10 @@ const Attendance = require("../models/Attendance");
 const Student = require("../models/Student");
 const Class = require("../models/Class");
 
+// Simple in-memory cache for AI insights (5 minute TTL)
+const aiInsightsCache = new Map();
+const AI_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 exports.markAttendance = async (req, res) => {
   try {
     const { class: classId, date, records } = req.body;
@@ -262,6 +266,14 @@ exports.getAIInsightsPrompt = async (req, res) => {
   try {
     const { classId } = req.params;
 
+    // Check cache first
+    const cacheKey = `ai_insights_${classId}`;
+    const cachedData = aiInsightsCache.get(cacheKey);
+    if (cachedData && (Date.now() - cachedData.timestamp) < AI_CACHE_TTL) {
+      console.log("[AI] Returning cached insights for class:", classId);
+      return res.json(cachedData.response);
+    }
+
     // Verify class ownership
     const classDoc = await Class.findById(classId);
     if (!classDoc) {
@@ -354,7 +366,7 @@ Keep response concise and professional.
     try {
       console.log("[AI] Sending prompt to Gemini API");
       const geminiResponse = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         {
           contents: [
             {
@@ -373,7 +385,7 @@ Keep response concise and professional.
 
       if (aiText) {
         console.log("[AI] Gemini response received successfully");
-        return res.json({
+        const responseData = {
           success: true,
           text: aiText,
           data: {
@@ -381,7 +393,15 @@ Keep response concise and professional.
             over75,
             critical,
           },
+        };
+
+        // Cache the successful response
+        aiInsightsCache.set(cacheKey, {
+          timestamp: Date.now(),
+          response: responseData,
         });
+
+        return res.json(responseData);
       } else {
         console.error("[AI] Unexpected Gemini response format:", geminiResponse.data);
         return res.json({
