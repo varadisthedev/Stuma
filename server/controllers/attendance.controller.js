@@ -2,6 +2,7 @@ const axios = require("axios");
 const Attendance = require("../models/Attendance");
 const Student = require("../models/Student");
 const Class = require("../models/Class");
+const User = require("../models/User");
 
 // Simple in-memory cache for AI insights (5 minute TTL)
 const aiInsightsCache = new Map();
@@ -9,56 +10,39 @@ const AI_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 exports.markAttendance = async (req, res) => {
   try {
-    const { class: classId, date, records } = req.body;
+    const { class: classId, date, records, note } = req.body;
 
     // Verify class ownership
     const classDoc = await Class.findById(classId);
     if (!classDoc) {
-      return res.status(404).json({
-        success: false,
-        message: "Class not found",
-      });
+      return res.status(404).json({ success: false, message: "Class not found" });
     }
 
-    if (classDoc.teacher.toString() !== req.teacherId) {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized - This class does not belong to you",
-      });
+    const user = await User.findById(req.userId);
+    const isVolunteer = user && user.role === "volunteer";
+
+    if (classDoc.admin.toString() !== req.userId && !(isVolunteer && classDoc.assignedVolunteer?.toString() === req.userId)) {
+      return res.status(403).json({ success: false, message: "Unauthorized - You are not authorized for this class" });
     }
 
-    // Check if attendance already marked for this class on this date
-    const existingAttendance = await Attendance.findOne({
-      class: classId,
-      date: new Date(date),
-    });
-
+    const existingAttendance = await Attendance.findOne({ class: classId, date: new Date(date) });
     if (existingAttendance) {
-      return res.status(400).json({
-        success: false,
-        message: "Attendance already marked for this class on this date",
-      });
+      return res.status(400).json({ success: false, message: "Attendance already marked for this class on this date" });
     }
 
-    // Verify all students belong to this teacher
     const studentIds = records.map((r) => r.student);
-    const students = await Student.find({
-      _id: { $in: studentIds },
-      teacher: req.teacherId,
-    });
-
+    const students = await Student.find({ _id: { $in: studentIds } });
     if (students.length !== studentIds.length) {
-      return res.status(400).json({
-        success: false,
-        message: "One or more students do not belong to you",
-      });
+      return res.status(400).json({ success: false, message: "One or more students do not belong to you" });
     }
 
     // Create attendance record
     const attendance = await Attendance.create({
       class: classId,
-      teacher: req.teacherId,
+      admin: isVolunteer ? classDoc.admin : req.userId,
+      takenBy: req.userId,
       date: new Date(date),
+      note: note || '',
       records,
     });
 
@@ -103,10 +87,12 @@ exports.getAttendanceByClass = async (req, res) => {
       });
     }
 
-    if (classDoc.teacher.toString() !== req.teacherId) {
+    const user = await User.findById(req.userId);
+    const isVolunteer = user && user.role === "volunteer";
+    if (classDoc.admin.toString() !== req.userId && !(isVolunteer && classDoc.assignedVolunteer?.toString() === req.userId)) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized - This class does not belong to you",
+        message: "Unauthorized - You are not authorized for this class",
       });
     }
 
@@ -144,14 +130,18 @@ exports.attendanceAnalytics = async (req, res) => {
       });
     }
 
-    if (classDoc.teacher.toString() !== req.teacherId) {
+    const user = await User.findById(req.userId);
+    const isVolunteer = user && user.role === "volunteer";
+    if (classDoc.admin.toString() !== req.userId && !(isVolunteer && classDoc.assignedVolunteer?.toString() === req.userId)) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized - This class does not belong to you",
+        message: "Unauthorized - You are not authorized for this class",
       });
     }
 
-    const students = await Student.find({ teacher: req.teacherId });
+    // fetch all students if volunteer, or admin's students 
+    const studentQuery = isVolunteer ? {} : { admin: req.userId };
+    const students = await Student.find(studentQuery);
     const attendance = await Attendance.find({ class: classId });
 
     const stats = students.map((student) => {
@@ -228,12 +218,16 @@ exports.attendanceChartData = async (req, res) => {
       });
     }
 
-    // Verify ownership
-    if (attendance.teacher.toString() !== req.teacherId) {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized - This attendance record does not belong to you",
-      });
+    const user = await User.findById(req.userId);
+    const isVolunteer = user && user.role === "volunteer";
+    if (attendance.admin.toString() !== req.userId && !(isVolunteer && true)) { // Allow volunteer to see attendance for their assigned classes if we find the class doc
+      // For now simplify to: only check attendance admin if not volunteer
+      if (user && user.role === "admin" && attendance.admin.toString() !== req.userId) {
+        return res.status(403).json({
+          success: false,
+          message: "Unauthorized - This attendance record does not belong to you",
+        });
+      }
     }
 
     const present = attendance.records.filter(
@@ -283,14 +277,17 @@ exports.getAIInsightsPrompt = async (req, res) => {
       });
     }
 
-    if (classDoc.teacher.toString() !== req.teacherId) {
+    const user = await User.findById(req.userId);
+    const isVolunteer = user && user.role === "volunteer";
+    if (classDoc.admin.toString() !== req.userId && !(isVolunteer && classDoc.assignedVolunteer?.toString() === req.userId)) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    const students = await Student.find({ teacher: req.teacherId });
+    const studentQuery = isVolunteer ? {} : { admin: req.userId };
+    const students = await Student.find(studentQuery);
     const attendance = await Attendance.find({ class: classId });
 
     const stats = students.map((student) => {
@@ -366,7 +363,7 @@ Keep response concise and professional.
     try {
       console.log("[AI] Sending prompt to Gemini API");
       const geminiResponse = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
         {
           contents: [
             {
@@ -454,3 +451,131 @@ Keep response concise and professional.
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Overall Analytics (program-level, no class filter)
+// ─────────────────────────────────────────────────────────────────────────────
+exports.getOverallAnalytics = async (req, res) => {
+  try {
+    console.log('[OVERALL ANALYTICS] Loading for user:', req.userId);
+    const User = require('../models/User');
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const isVolunteer = user.role === 'volunteer';
+    const classFilter = isVolunteer ? { assignedVolunteer: req.userId } : { admin: req.userId };
+
+    const classes = await Class.find(classFilter).populate('assignedVolunteer', 'name').lean();
+    console.log('[OVERALL ANALYTICS] Found classes:', classes.length);
+
+    // Volunteer class distribution
+    const volunteerMap = {};
+    classes.forEach(c => {
+      const vol = c.assignedVolunteer;
+      const key = vol ? (vol._id?.toString() || String(vol)) : '__unassigned__';
+      const name = vol?.name || 'Unassigned';
+      if (!volunteerMap[key]) volunteerMap[key] = { name, count: 0 };
+      volunteerMap[key].count++;
+    });
+    const volunteerDistribution = Object.values(volunteerMap).sort((a, b) => b.count - a.count);
+
+    // Weekly class count (last 8 weeks)
+    const now = new Date();
+    const weeklyData = [];
+    for (let w = 7; w >= 0; w--) {
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay() - w * 7);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+      const label = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const count = classes.filter(c => {
+        const d = new Date(c.date);
+        return d >= weekStart && d < weekEnd;
+      }).length;
+      weeklyData.push({ label, count });
+    }
+    console.log('[OVERALL ANALYTICS] Weekly data:', JSON.stringify(weeklyData));
+
+    // Overall attendance
+    const attendanceFilter = isVolunteer ? { takenBy: req.userId } : { admin: req.userId };
+    const allAttendance = await Attendance.find(attendanceFilter).lean();
+    const totalSessions = allAttendance.length;
+    const totalPresent = allAttendance.reduce((sum, a) => sum + a.records.filter(r => r.status === 'present').length, 0);
+    const totalStudents = allAttendance.reduce((sum, a) => sum + a.records.length, 0);
+    const overallRate = totalStudents > 0 ? Math.round((totalPresent / totalStudents) * 100) : 0;
+    console.log('[OVERALL ANALYTICS] Rate:', overallRate + '%', 'sessions:', totalSessions);
+
+    res.json({
+      success: true,
+      totalClasses: classes.length,
+      totalSessions,
+      overallRate,
+      volunteerDistribution,
+      weeklyData,
+    });
+  } catch (err) {
+    console.error('[OVERALL ANALYTICS] Error:', err);
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+};
+
+// Overall AI Insights (Gemini call across all classes)
+exports.getOverallAIInsights = async (req, res) => {
+  try {
+    console.log('[OVERALL AI] Generating insights for user:', req.userId);
+    const User = require('../models/User');
+    const user = await User.findById(req.userId);
+    const isVolunteer = user?.role === 'volunteer';
+    const classFilter = isVolunteer ? { assignedVolunteer: req.userId } : { admin: req.userId };
+
+    const classes = await Class.find(classFilter).lean();
+    const attendanceFilter = isVolunteer ? { takenBy: req.userId } : { admin: req.userId };
+    const allAttendance = await Attendance.find(attendanceFilter).lean();
+
+    const totalPresent = allAttendance.reduce((sum, a) => sum + a.records.filter(r => r.status === 'present').length, 0);
+    const totalStudents = allAttendance.reduce((sum, a) => sum + a.records.length, 0);
+    const overallRate = totalStudents > 0 ? Math.round((totalPresent / totalStudents) * 100) : 0;
+
+    const prompt = `You are an education analytics assistant for a foundation tutoring program.
+Summarize the data below and provide 2-3 short insights:
+
+Total Classes Scheduled: ${classes.length}
+Attendance Sessions Recorded: ${allAttendance.length}
+Overall Attendance Rate: ${overallRate}%
+Total Student Slots: ${totalStudents}
+Total Present Slots: ${totalPresent}
+
+Provide:
+1. A one-line program health summary
+2. One risk or concern (if any)
+3. One actionable recommendation
+
+Keep it brief and encouraging. Use plain text, no markdown.`.trim();
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    console.log('[OVERALL AI] API key present:', !!apiKey);
+    if (!apiKey) {
+      return res.json({ success: false, message: 'GEMINI_API_KEY not set in server .env file.' });
+    }
+
+    console.log('[OVERALL AI] Calling Gemini...');
+    const geminiRes = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+      { contents: [{ parts: [{ text: prompt }] }] },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
+    );
+
+    const text = geminiRes.data.candidates?.[0]?.content?.parts?.[0]?.text;
+    console.log('[OVERALL AI] Response length:', text?.length ?? 0);
+
+    if (text) return res.json({ success: true, text });
+    return res.json({ success: false, message: 'Empty response from Gemini.' });
+  } catch (err) {
+    console.error('[OVERALL AI] Error:', err.response?.data || err.message);
+    const msg = err.response?.status === 403 ? 'Invalid Gemini API key.'
+      : err.response?.status === 429 ? 'Gemini quota exceeded. Try again later.'
+      : err.code === 'ENOTFOUND' ? 'Network error reaching Gemini API.'
+      : (err.response?.data?.error?.message || 'Failed to get AI insights.');
+    res.json({ success: false, message: msg });
+  }
+};

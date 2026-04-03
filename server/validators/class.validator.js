@@ -25,6 +25,11 @@ exports.createClassValidation = validate([
         .withMessage("Subject is required")
         .isLength({ min: 2 })
         .withMessage("Subject must be at least 2 characters"),
+    body("date")
+        .optional()
+        .trim()
+        .isISO8601()
+        .withMessage("Date must be a valid ISO8601 date format"),
     body("day")
         .trim()
         .notEmpty()

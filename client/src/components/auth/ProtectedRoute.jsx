@@ -7,14 +7,18 @@
 
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import LoadingSpinner from '../ui/LoadingSpinner';
+import { DashboardSkeleton } from '../ui/Skeleton';
 
 export default function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   // Show loading while checking auth
   if (isLoading) {
-    return <LoadingSpinner fullScreen message="Checking authentication..." />;
+    return (
+      <div style={{ padding: '24px 32px' }}>
+        <DashboardSkeleton />
+      </div>
+    );
   }
 
   // Redirect to login if not authenticated

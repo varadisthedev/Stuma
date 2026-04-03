@@ -108,11 +108,11 @@ exports.getActiveSession = async (req, res) => {
 exports.startSession = async (req, res) => {
     try {
         const { classId, date } = req.body;
-        const teacherId = req.teacherId;
+        const userId = req.userId;
 
         console.log("[IOT] Starting session for class:", classId, "date:", date);
 
-        // Validate class exists and belongs to teacher
+        // Validate class exists and belongs to admin
         const classDoc = await Class.findById(classId);
         if (!classDoc) {
             return res.status(404).json({
@@ -121,14 +121,14 @@ exports.startSession = async (req, res) => {
             });
         }
 
-        if (classDoc.teacher.toString() !== teacherId) {
+        if (classDoc.admin.toString() !== userId) {
             return res.status(403).json({
                 success: false,
                 message: "Unauthorized - This class does not belong to you",
             });
         }
 
-        // Check if attendance already exists for this class on this date
+        // Check if attendance already marked for this class on this date
         const existingAttendance = await Attendance.findOne({
             class: classId,
             date: new Date(date),
@@ -141,8 +141,8 @@ exports.startSession = async (req, res) => {
             });
         }
 
-        // Get all students for the teacher
-        const students = await Student.find({ teacher: teacherId }).sort({ rollNo: 1 });
+        // Get all students for the admin
+        const students = await Student.find({ admin: userId }).sort({ rollNo: 1 });
 
         if (students.length === 0) {
             return res.status(400).json({
@@ -151,9 +151,9 @@ exports.startSession = async (req, res) => {
             });
         }
 
-        // Check if there's already an active session for this teacher
+        // Check if there's already an active session for this admin
         for (const [sessionId, session] of activeSessions) {
-            if (session.teacherId === teacherId && session.active) {
+            if (session.adminId === userId && session.active) {
                 // End the previous session
                 activeSessions.delete(sessionId);
                 console.log("[IOT] Ended previous active session:", sessionId);
@@ -167,7 +167,7 @@ exports.startSession = async (req, res) => {
             sessionId,
             classId,
             date,
-            teacherId,
+            adminId: userId,
             students: students.map((s) => ({
                 _id: s._id.toString(),
                 name: s.name,
@@ -210,7 +210,7 @@ exports.startSession = async (req, res) => {
 exports.stopSession = async (req, res) => {
     try {
         const { sessionId, saveProgress } = req.body;
-        const teacherId = req.teacherId;
+        const userId = req.userId;
 
         console.log("[IOT] Stopping session:", sessionId, "saveProgress:", saveProgress);
 
@@ -223,7 +223,7 @@ exports.stopSession = async (req, res) => {
             });
         }
 
-        if (session.teacherId !== teacherId) {
+        if (session.adminId !== userId) {
             return res.status(403).json({
                 success: false,
                 message: "Unauthorized - This session does not belong to you",
@@ -244,7 +244,7 @@ exports.stopSession = async (req, res) => {
         if (saveProgress && Object.keys(session.records).length > 0) {
             const attendance = await Attendance.create({
                 class: session.classId,
-                teacher: teacherId,
+                admin: userId,
                 date: new Date(session.date),
                 records,
             });
@@ -524,7 +524,7 @@ exports.markAttendance = async (req, res) => {
 exports.nextStudent = async (req, res) => {
     try {
         const { sessionId } = req.body;
-        const teacherId = req.teacherId;
+        const userId = req.userId;
 
         console.log("[IOT] Admin requesting next student for session:", sessionId);
 
@@ -537,7 +537,7 @@ exports.nextStudent = async (req, res) => {
             });
         }
 
-        if (session.teacherId !== teacherId) {
+        if (session.adminId !== userId) {
             return res.status(403).json({
                 success: false,
                 message: "Unauthorized",
@@ -607,7 +607,7 @@ exports.nextStudent = async (req, res) => {
 exports.getSessionStatus = async (req, res) => {
     try {
         const { sessionId } = req.params;
-        const teacherId = req.teacherId;
+        const userId = req.userId;
 
         const session = activeSessions.get(sessionId);
 
@@ -619,7 +619,7 @@ exports.getSessionStatus = async (req, res) => {
             });
         }
 
-        if (session.teacherId !== teacherId) {
+        if (session.adminId !== userId) {
             return res.status(403).json({
                 success: false,
                 message: "Unauthorized",
@@ -668,7 +668,7 @@ exports.getSessionStatus = async (req, res) => {
 exports.skipStudent = async (req, res) => {
     try {
         const { sessionId } = req.body;
-        const teacherId = req.teacherId;
+        const userId = req.userId;
 
         const session = activeSessions.get(sessionId);
 
@@ -679,7 +679,7 @@ exports.skipStudent = async (req, res) => {
             });
         }
 
-        if (session.teacherId !== teacherId) {
+        if (session.adminId !== userId) {
             return res.status(403).json({
                 success: false,
                 message: "Unauthorized",

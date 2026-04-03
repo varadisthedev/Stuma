@@ -44,4 +44,10 @@ router.get(
   controller.getAIInsightsPrompt
 );
 
+// Get overall analytics across all classes (for dashboard)
+router.get("/overall", auth, controller.getOverallAnalytics);
+
+// Get overall AI insights (no class filter, program-level)
+router.get("/overall-ai", auth, controller.getOverallAIInsights);
+
 module.exports = router;

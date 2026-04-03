@@ -29,7 +29,7 @@ exports.registerValidation = validate([
         .trim()
         .notEmpty()
         .withMessage("Email is required")
-        .isEmail()
+        .isEmail({ require_tld: false })
         .withMessage("Must be a valid email")
         .normalizeEmail(),
     body("password")
@@ -44,7 +44,7 @@ exports.loginValidation = validate([
         .trim()
         .notEmpty()
         .withMessage("Email is required")
-        .isEmail()
+        .isEmail({ require_tld: false })
         .withMessage("Must be a valid email")
         .normalizeEmail(),
     body("password").notEmpty().withMessage("Password is required"),

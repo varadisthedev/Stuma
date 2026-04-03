@@ -16,7 +16,7 @@ const AuthContext = createContext(null);
  * Wraps the app and provides auth state/methods
  */
 export function AuthProvider({ children }) {
-  const [teacher, setTeacher] = useState(null);
+  const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -25,16 +25,16 @@ export function AuthProvider({ children }) {
     console.log('[AUTH] Checking existing authentication');
     
     const token = localStorage.getItem('token');
-    const storedTeacher = localStorage.getItem('teacher');
+    const storedUser = localStorage.getItem('user') || localStorage.getItem('teacher'); // legacy support
     
-    if (token && storedTeacher) {
+    if (token && storedUser) {
       try {
-        const parsedTeacher = JSON.parse(storedTeacher);
-        setTeacher(parsedTeacher);
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
         setIsAuthenticated(true);
-        console.log('[AUTH] Found existing session for:', parsedTeacher.name);
+        console.log('[AUTH] Found existing session for:', parsedUser.name);
       } catch (error) {
-        console.error('[AUTH] Failed to parse stored teacher data:', error);
+        console.error('[AUTH] Failed to parse stored user data:', error);
         logout();
       }
     } else {
@@ -47,43 +47,28 @@ export function AuthProvider({ children }) {
   /**
    * Login handler
    */
-  const login = async (email, password) => {
+  const login = async (email, password, role) => {
     try {
-      const response = await authAPI.login(email, password);
+      const response = await authAPI.login(email, password, role);
       
       if (response.success) {
-        setTeacher(response.teacher);
+        setUser(response.user || response.teacher);
         setIsAuthenticated(true);
-        console.log('[AUTH] Login state updated for:', response.teacher.name);
+        console.log('[AUTH] Login state updated for:', (response.user || response.teacher).name);
         return { success: true };
       } else {
         console.error('[AUTH] Login failed:', response.message);
         return { success: false, message: response.message };
       }
     } catch (error) {
-      const message = error.response?.data?.message || 'Login failed. Please try again.';
-      console.error('[AUTH] Login error:', message);
-      return { success: false, message };
-    }
-  };
-
-  /**
-   * Register handler
-   */
-  const register = async (name, email, password) => {
-    try {
-      const response = await authAPI.register(name, email, password);
+      let message = error.response?.data?.message || 'Login failed. Please try again.';
       
-      if (response.success) {
-        console.log('[AUTH] Registration successful, user can now login');
-        return { success: true };
-      } else {
-        console.error('[AUTH] Registration failed:', response.message);
-        return { success: false, message: response.message };
+      // Extract specific validation messages if available
+      if (error.response?.data?.errors && error.response.data.errors.length > 0) {
+        message = error.response.data.errors[0].msg;
       }
-    } catch (error) {
-      const message = error.response?.data?.message || 'Registration failed. Please try again.';
-      console.error('[AUTH] Registration error:', message);
+      
+      console.error('[AUTH] Login error:', message);
       return { success: false, message };
     }
   };
@@ -94,18 +79,19 @@ export function AuthProvider({ children }) {
   const logout = () => {
     console.log('[AUTH] Logging out');
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     localStorage.removeItem('teacher');
-    setTeacher(null);
+    setUser(null);
     setIsAuthenticated(false);
   };
 
   // Context value
   const value = {
-    teacher,
+    user,
+    teacher: user, // Alias for older components not yet updated
     isLoading,
     isAuthenticated,
     login,
-    register,
     logout,
   };
 

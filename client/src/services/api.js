@@ -89,9 +89,9 @@ export const authAPI = {
      * @param {string} email 
      * @param {string} password 
      */
-    login: async (email, password) => {
+    login: async (email, password, role) => {
         console.log('[AUTH] Attempting login for:', email);
-        const response = await api.post('/api/auth/login', { email, password });
+        const response = await api.post('/api/auth/login', { email, password, role });
 
         if (response.data.success) {
             console.log('[AUTH] Login successful');
@@ -144,6 +144,26 @@ export const authAPI = {
         const teacher = localStorage.getItem('teacher');
         return teacher ? JSON.parse(teacher) : null;
     },
+
+    /**
+     * Get all volunteers
+     */
+    getVolunteers: async () => {
+        const response = await api.get('/api/auth/volunteers');
+        return response.data;
+    },
+    createVolunteer: async (data) => {
+        const response = await api.post('/api/auth/volunteers', data);
+        return response.data;
+    },
+    updateVolunteer: async (id, data) => {
+        const response = await api.put(`/api/auth/volunteers/${id}`, data);
+        return response.data;
+    },
+    deleteVolunteer: async (id) => {
+        const response = await api.delete(`/api/auth/volunteers/${id}`);
+        return response.data;
+    },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -151,42 +171,10 @@ export const authAPI = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const classesAPI = {
-    /**
-     * Get all classes for the teacher
-     */
-    getAll: async () => {
-        console.log('[CLASSES] Fetching all classes');
-        const response = await api.get('/api/classes');
-        return response.data;
-    },
-
-    /**
-     * Get today's classes
-     */
-    getToday: async () => {
-        console.log('[CLASSES] Fetching today\'s classes');
-        const response = await api.get('/api/classes/today');
-        return response.data;
-    },
-
-    /**
-     * Get current running class (based on time)
-     */
-    getCurrent: async () => {
-        console.log('[CLASSES] Checking current class');
-        const response = await api.get('/api/classes/current');
-        return response.data;
-    },
-
-    /**
-     * Create a new class
-     * @param {Object} classData - { subject, day, startTime, endTime }
-     */
-    create: async (classData) => {
-        console.log('[CLASSES] Creating new class:', classData);
-        const response = await api.post('/api/classes', classData);
-        return response.data;
-    },
+    getAll: async () => { const r = await api.get('/api/classes'); return r.data; },
+    getToday: async () => { const r = await api.get('/api/classes/today'); return r.data; },
+    getCurrent: async () => { const r = await api.get('/api/classes/current'); return r.data; },
+    create: async (classData) => { const r = await api.post('/api/classes', classData); return r.data; },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -194,24 +182,19 @@ export const classesAPI = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const studentsAPI = {
-    /**
-     * Get all students for the teacher
-     */
-    getAll: async () => {
-        console.log('[STUDENTS] Fetching all students');
-        const response = await api.get('/api/students');
-        return response.data;
-    },
+    getAll: async () => { const r = await api.get('/api/students'); return r.data; },
+    create: async (studentData) => { const r = await api.post('/api/students', studentData); return r.data; },
+    getStats: async (studentId) => { const r = await api.get(`/api/students/${studentId}/stats`); return r.data; },
+};
 
-    /**
-     * Add a new student
-     * @param {Object} studentData - { name, rollNo }
-     */
-    create: async (studentData) => {
-        console.log('[STUDENTS] Adding new student:', studentData);
-        const response = await api.post('/api/students', studentData);
-        return response.data;
-    },
+// ═══════════════════════════════════════════════════════════════════════════
+// MESSAGES API
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const messagesAPI = {
+    send: async (text) => { const r = await api.post('/api/messages', { text }); return r.data; },
+    getAll: async () => { const r = await api.get('/api/messages'); return r.data; },
+    markRead: async (id) => { const r = await api.patch(`/api/messages/${id}/read`); return r.data; },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -266,6 +249,60 @@ export const attendanceAPI = {
     getAIInsights: async (classId) => {
         console.log('[ANALYTICS] Fetching AI insights for class:', classId);
         const response = await api.get(`/api/attendance/ai-insights/${classId}`);
+        return response.data;
+    },
+
+    getOverall: async () => {
+        console.log('[ANALYTICS] Fetching overall analytics');
+        const response = await api.get('/api/attendance/overall');
+        return response.data;
+    },
+
+    getOverallAI: async () => {
+        console.log('[ANALYTICS] Fetching overall AI insights');
+        const response = await api.get('/api/attendance/overall-ai');
+        return response.data;
+    },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHOTOS API
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const photosAPI = {
+    /** Upload a live webcam capture for a class */
+    uploadCapture: async (payload) => {
+        console.log('[PHOTOS] Uploading class capture for class:', payload.classId);
+        const response = await api.post('/api/photos/capture', payload);
+        return response.data;
+    },
+    /** Get all photos (admin=all, volunteer=own) */
+    getGallery: async () => {
+        console.log('[PHOTOS] Fetching gallery');
+        const response = await api.get('/api/photos/gallery');
+        return response.data;
+    },
+    /** Get photos for a specific class */
+    getByClass: async (classId) => {
+        console.log('[PHOTOS] Fetching photos for class:', classId);
+        const response = await api.get(`/api/photos/class/${classId}`);
+        return response.data;
+    },
+    /** Upload a profile picture (base64) */
+    uploadProfilePic: async (imageBase64) => {
+        console.log('[PHOTOS] Uploading profile picture');
+        const response = await api.post('/api/photos/profile-pic', { imageBase64 });
+        return response.data;
+    },
+    /** Update profile info (name, phone) */
+    updateProfile: async (data) => {
+        console.log('[PHOTOS] Updating profile:', data);
+        const response = await api.patch('/api/photos/profile', data);
+        return response.data;
+    },
+    /** Get own profile */
+    getProfile: async () => {
+        const response = await api.get('/api/photos/profile');
         return response.data;
     },
 };

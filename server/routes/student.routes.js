@@ -6,9 +6,12 @@ const { addStudentValidation } = require("../validators/student.validator");
 const router = express.Router();
 
 // Add student
-router.post("/", auth, addStudentValidation, controller.addStudent);
+router.post("/", auth, controller.addStudent);
 
 // Get all students for the teacher
-router.get("/", auth, controller.getStudents);
+router.get("/", auth, controller.getAllStudents);
+
+// Get attendance stats for a specific student
+router.get("/:studentId/stats", auth, controller.getStudentStats);
 
 module.exports = router;

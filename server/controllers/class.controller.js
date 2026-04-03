@@ -1,15 +1,39 @@
 const Class = require("../models/Class");
+const User = require("../models/User");
 
 exports.createClass = async (req, res) => {
   try {
-    const { subject, day, startTime, endTime } = req.body;
+    const { subject, date, day, startTime, endTime, assignedVolunteer, youtubeLink } = req.body;
+
+    const classDate = date || new Date().toISOString().split('T')[0];
+
+    if (assignedVolunteer) {
+      const overlappingClass = await Class.findOne({
+        assignedVolunteer,
+        date: classDate,
+        $and: [
+          { startTime: { $lt: endTime } },
+          { endTime: { $gt: startTime } }
+        ]
+      });
+
+      if (overlappingClass) {
+        return res.status(400).json({
+          success: false,
+          message: "Volunteer is busy during this time slot on this date."
+        });
+      }
+    }
 
     const newClass = await Class.create({
       subject,
+      date: classDate,
       day,
       startTime,
       endTime,
-      teacher: req.teacherId,
+      admin: req.userId,
+      assignedVolunteer,
+      youtubeLink,
     });
 
     res.status(201).json({
@@ -30,11 +54,16 @@ exports.createClass = async (req, res) => {
 exports.getTodayClasses = async (req, res) => {
   try {
     const today = new Date().toLocaleString("en-US", { weekday: "long" });
+    const user = await User.findById(req.userId);
 
-    const classes = await Class.find({
-      teacher: req.teacherId,
-      day: today,
-    }).sort({ startTime: 1 }); // Sort by start time
+    const query = { day: today };
+    if (user && user.role === "admin") {
+      query.admin = req.userId;
+    } else if (user && user.role === "volunteer") {
+      query.assignedVolunteer = req.userId;
+    }
+
+    const classes = await Class.find(query).sort({ startTime: 1 }); // Sort by start time
 
     res.json({
       success: true,
@@ -56,11 +85,17 @@ exports.getCurrentClass = async (req, res) => {
     const now = new Date();
     const day = now.toLocaleString("en-US", { weekday: "long" });
     const currentTime = now.toTimeString().slice(0, 5); // "14:30" format
+    
+    const user = await User.findById(req.userId);
 
-    const classes = await Class.find({
-      teacher: req.teacherId,
-      day: day,
-    });
+    const query = { day: day };
+    if (user && user.role === "admin") {
+      query.admin = req.userId;
+    } else if (user && user.role === "volunteer") {
+      query.assignedVolunteer = req.userId;
+    }
+
+    const classes = await Class.find(query);
 
     // Find the class that is currently running
     const currentClass = classes.find((c) => {
@@ -85,9 +120,16 @@ exports.getCurrentClass = async (req, res) => {
 
 exports.getAllClasses = async (req, res) => {
   try {
-    const classes = await Class.find({
-      teacher: req.teacherId,
-    }).sort({ day: 1, startTime: 1 });
+    const user = await User.findById(req.userId);
+    
+    const query = {};
+    if (user && user.role === "admin") {
+      query.admin = req.userId;
+    } else if (user && user.role === "volunteer") {
+      query.assignedVolunteer = req.userId;
+    }
+
+    const classes = await Class.find(query).populate('assignedVolunteer', 'name email').sort({ day: 1, startTime: 1 });
 
     res.json({
       success: true,

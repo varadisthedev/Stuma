@@ -1,29 +1,25 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- * Login Page - Ramdeobaba University
- * Authentication page with login and registration tabs
- * ═══════════════════════════════════════════════════════════════════════════
- */
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Alert from '../../components/ui/Alert';
-import universityLogo from '../../assets/logo.jpg';
-import wallpaper from '../../assets/wallpaper.jpg';
+import renovatioLogo from '../../assets/brandings/renovatioLogo.png';
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Login Page - Renovatio Foundation
+ * Exact implementation of the Google Stitch Design provided by the User
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, register } = useAuth();
+  const { login } = useAuth();
   
-  const [activeTab, setActiveTab] = useState('login');
+  const [loginRole, setLoginRole] = useState('admin');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   
   // Form states
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
-  const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '' });
 
   /**
    * Handle login submit
@@ -33,9 +29,9 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     
-    console.log('[LOGIN] Attempting login');
+    console.log(`[LOGIN] Attempting login as ${loginRole}`);
     
-    const result = await login(loginForm.email, loginForm.password);
+    const result = await login(loginForm.email, loginForm.password, loginRole);
     
     if (result.success) {
       console.log('[LOGIN] Login successful, redirecting to dashboard');
@@ -48,409 +44,159 @@ export default function LoginPage() {
     setIsLoading(false);
   };
 
-  /**
-   * Handle registration submit
-   */
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setIsLoading(true);
-    
-    console.log('[LOGIN] Attempting registration');
-    
-    // Validation
-    if (registerForm.password.length < 6) {
-      setError('Password must be at least 6 characters');
-      setIsLoading(false);
-      return;
-    }
-    
-    const result = await register(
-      registerForm.name,
-      registerForm.email,
-      registerForm.password
-    );
-    
-    if (result.success) {
-      console.log('[LOGIN] Registration successful');
-      setSuccess('Account created successfully! Please login.');
-      setActiveTab('login');
-      setLoginForm({ email: registerForm.email, password: '' });
-      setRegisterForm({ name: '', email: '', password: '' });
-    } else {
-      console.log('[LOGIN] Registration failed:', result.message);
-      setError(result.message);
-    }
-    
-    setIsLoading(false);
-  };
-
   return (
-    <div style={styles.container}>
-      {/* Decorative Background */}
-      <div style={styles.bgPattern}></div>
-      <div style={styles.bgGlow1}></div>
-      <div style={styles.bgGlow2}></div>
-      
-      {/* Decorative Circles */}
-      <svg style={styles.decorCircle1} viewBox="0 0 200 200" fill="none">
-        <circle cx="100" cy="100" r="90" stroke="currentColor" strokeWidth="0.5" strokeDasharray="4 4" />
-        <circle cx="100" cy="100" r="70" stroke="currentColor" strokeWidth="0.3" />
-      </svg>
-      <svg style={styles.decorCircle2} viewBox="0 0 150 150" fill="none">
-        <circle cx="75" cy="75" r="65" stroke="currentColor" strokeWidth="0.5" strokeDasharray="3 3" />
-      </svg>
+    <div className="font-body bg-gray-100 min-h-screen flex flex-col" style={{ backgroundColor: '#f4f6f8' }}>
+      <main className="flex-grow flex items-center justify-center p-6" style={{ padding: '1.5rem' }}>
+        <div className="max-w-5xl w-full grid md:grid-cols-2 bg-white rounded-xl overflow-hidden shadow-2xl" style={{ minHeight: '600px' }}>
+          {/* Branding/Visual Side */}
+          <div className="hidden md:flex flex-col justify-between p-12 relative" style={{ background: '#b91d20', padding: '3.5rem' }}>
+            <div className="relative z-10">
+              <div className="text-white mb-12 flex items-center" style={{ marginBottom: '4rem' }}>
+                <img src={renovatioLogo} alt="Renovatio Foundation" className="w-auto h-auto bg-white rounded-xl p-2" style={{ width: '14rem', height: 'auto', backgroundColor: 'white', borderRadius: '0.75rem', padding: '0.75rem' }} />
+              </div>
+              <h1 className="font-headline font-semibold text-4xl text-white leading-tight tracking-tight mb-6" style={{ fontSize: '2.5rem', lineHeight: '1.2', marginBottom: '1.5rem' }}>
+                Securing the Future<br />Through Dedicated Service.
+              </h1>
+              <p className="text-white opacity-90 text-sm leading-relaxed max-w-sm" style={{ fontSize: '15px', lineHeight: '1.6' }}>
+                Welcome to the Attendance Portal. Please authenticate to access your dashboard and manage sessions.
+              </p>
+            </div>
+            
+            {/* Abstract Decorative Image Overlay */}
+            <div className="absolute inset-0 z-0">
+              {/* Added a solid overlay with multiply over the image to give it the deep red finish */}
+              <div className="absolute inset-0 bg-red-700 mix-blend-multiply opacity-50" style={{ backgroundColor: '#b91d20' }}></div>
+              <img 
+                alt="abstract composition" 
+                className="w-full h-full object-cover opacity-30 mix-blend-screen" 
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAR9eGGhHcjUGrtlFpMiTyk28bbAmTQwc2Uju_6xsfsV8o8iKqSL85M0Ian0UsMMllMXBatlFPe6jqTWIxtDrI4TD170rJu9SjZXxzxO57rV-H3bUx4_h_m_zEv1vASkDffdSuSAx1WCcLbuvCfqNJks0K6govyqJ_AQ71G8K3IIQejIIxjBY2UGIs7pBNALaofcIVhLcsviQwa0HMWJhd8QN8uS7xAy79YtiNmDO7blyIr3YcrmkLReBIoGhU5yuLHUZSG6iGA" 
+              />
+            </div>
 
-      {/* Main Card */}
-      <div style={styles.card} className="animate-fade-in">
-        {/* University Header */}
-        <div style={styles.header}>
-          <div style={styles.logoWrapper}>
-            <img 
-              src={universityLogo} 
-              alt="Ramdeobaba University" 
-              style={styles.logoImage}
-            />
+            <div className="relative z-10 mt-12" style={{ marginTop: '3rem' }}>
+              <div className="flex items-center space-x-3 text-white" style={{ gap: '0.75rem' }}>
+                <span className="material-symbols-outlined text-xl">verified_user</span>
+                <span className="font-label text-xs uppercase tracking-widest font-medium opacity-90">Enterprise Secure Access</span>
+              </div>
+            </div>
           </div>
-          <div style={styles.universityInfo}>
-            <h1 style={styles.universityName}>Ramdeobaba University</h1>
-            <p style={styles.portalName}>Faculty Attendance Portal</p>
+
+          {/* Login Content Side */}
+          <div className="p-10 md:p-14 flex flex-col justify-center bg-white" style={{ padding: '3.5rem' }}>
+            <div className="mb-8" style={{ marginBottom: '2rem' }}>
+              <h2 className="font-headline font-bold text-3xl text-gray-900 tracking-tight" style={{ fontSize: '1.75rem' }}>Portal Login</h2>
+              <p className="text-gray-500 text-sm mt-1">Enter your credentials below</p>
+            </div>
+
+            {/* Error Space */}
+            {error && <div className="mb-6"><Alert type="error" message={error} /></div>}
+
+            {/* Tabs */}
+            <div className="flex bg-gray-50 p-1.5 rounded-lg mb-8" style={{ backgroundColor: '#f8f9fa', padding: '0.375rem', marginBottom: '2rem' }}>
+              <button 
+                type="button"
+                onClick={() => { setLoginRole('admin'); setError(''); }}
+                className={`flex-1 py-3 px-4 rounded-md flex items-center justify-center space-x-2 transition-all duration-200 ${
+                  loginRole === 'admin' 
+                  ? 'bg-white font-semibold shadow-sm text-red-700' 
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 font-medium'
+                }`}
+                style={{ padding: '0.75rem 1rem', gap: '0.5rem', color: loginRole === 'admin' ? '#b91d20' : undefined }}
+              >
+                <span className="material-symbols-outlined text-lg">deployed_code</span>
+                <span className="text-xs uppercase tracking-wider font-semibold">Admin Access</span>
+              </button>
+              <button 
+                type="button"
+                onClick={() => { setLoginRole('volunteer'); setError(''); }}
+                className={`flex-1 py-3 px-4 rounded-md flex items-center justify-center space-x-2 transition-all duration-200 ${
+                  loginRole === 'volunteer' 
+                  ? 'bg-white font-semibold shadow-sm text-red-700' 
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 font-medium'
+                }`}
+                style={{ padding: '0.75rem 1rem', gap: '0.5rem', color: loginRole === 'volunteer' ? '#b91d20' : undefined }}
+              >
+                <span className="material-symbols-outlined text-lg">volunteer_activism</span>
+                <span className="text-xs uppercase tracking-wider font-semibold">Volunteer Access</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-6" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="email" style={{ marginBottom: '0.5rem' }}>
+                  Institutional Email
+                </label>
+                <input 
+                  className="w-full bg-gray-100 border border-transparent focus:border-gray-300 rounded-md px-4 py-3 transition-colors outline-none text-gray-900 text-sm"
+                  style={{ backgroundColor: '#f4f6f8', padding: '0.875rem 1rem' }} 
+                  id="email" 
+                  name="email" 
+                  autoComplete="username email"
+                  placeholder={loginRole === 'admin' ? "name@renovatio.org" : "volunteer@renovatio.org"}
+                  type="email" 
+                  value={loginForm.email}
+                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                  required
+                />
+              </div>
+              
+              <div>
+                <div className="flex justify-between items-center mb-2" style={{ marginBottom: '0.5rem' }}>
+                  <label className="block text-sm font-medium text-gray-700" htmlFor="password">
+                    Security Password
+                  </label>
+                  <a className="text-xs font-medium hover:underline text-red-700" style={{ color: '#b91d20' }} href="#">Forgot Access?</a>
+                </div>
+                <input 
+                  className="w-full bg-gray-100 border border-transparent focus:border-gray-300 rounded-md px-4 py-3 transition-colors outline-none text-gray-900 text-sm" 
+                  style={{ backgroundColor: '#f4f6f8', padding: '0.875rem 1rem' }} 
+                  id="password" 
+                  name="password" 
+                  autoComplete="current-password"
+                  placeholder="••••••••" 
+                  type="password" 
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="pt-2">
+                <button 
+                  className="w-full py-3 bg-red-700 text-white text-sm font-bold rounded-md hover:bg-red-800 transition-colors" 
+                  style={{ backgroundColor: '#b91d20', padding: '0.875rem' }}
+                  type="submit"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Signing In...' : 'Sign In to Dashboard'}
+                </button>
+              </div>
+            </form>
+
+            <div className="mt-10 text-center" style={{ marginTop: '2.5rem' }}>
+              <p className="text-gray-500 text-xs">
+                By logging in, you agree to our{' '}
+                <a className="font-medium hover:underline text-red-700" style={{ color: '#b91d20' }} href="#">Terms of Service</a>{' '}
+                and{' '}
+                <a className="font-medium hover:underline text-red-700" style={{ color: '#b91d20' }} href="#">Data Protection Policy</a>.
+              </p>
+            </div>
           </div>
         </div>
+      </main>
 
-        {/* Blue Divider */}
-        <div style={styles.divider}></div>
-
-        {/* Tabs */}
-        <div style={styles.tabs}>
-          <button
-            style={{
-              ...styles.tab,
-              ...(activeTab === 'login' && styles.tabActive),
-            }}
-            onClick={() => { setActiveTab('login'); setError(''); }}
-          >
-            Sign In
-          </button>
-          <button
-            style={{
-              ...styles.tab,
-              ...(activeTab === 'register' && styles.tabActive),
-            }}
-            onClick={() => { setActiveTab('register'); setError(''); }}
-          >
-            Register
-          </button>
+      <footer className="w-full py-6 bg-white flex flex-col md:flex-row justify-between items-center px-10" style={{ padding: '1.5rem 2.5rem' }}>
+        <div className="mb-4 md:mb-0 flex items-center space-x-3" style={{ gap: '0.75rem' }}>
+          <span className="font-headline font-bold text-sm text-red-700" style={{ color: '#b91d20' }}>Renovatio Foundation</span>
+          <span className="text-gray-300">|</span>
+          <span className="text-xs text-gray-500">© 2024 Renovatio Foundation. All Rights Reserved.</span>
         </div>
-
-        {/* Alerts */}
-        {error && <Alert type="error" message={error} style={{ margin: '0 1.5rem 1rem' }} />}
-        {success && <Alert type="success" message={success} style={{ margin: '0 1.5rem 1rem' }} />}
-
-        {/* Login Form */}
-        {activeTab === 'login' && (
-          <form onSubmit={handleLogin} style={styles.form}>
-            <div className="form-group">
-              <label className="form-label">Email Address</label>
-              <input
-                type="email"
-                className="form-input"
-                placeholder="faculty@rbu.edu.in"
-                value={loginForm.email}
-                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                required
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder="••••••••"
-                value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              style={styles.submitBtn}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <span className="spinner-sm" style={{ borderTopColor: 'white' }}></span>
-                  Signing in...
-                </>
-              ) : (
-                'Sign In to Portal'
-              )}
-            </button>
-          </form>
-        )}
-
-        {/* Register Form */}
-        {activeTab === 'register' && (
-          <form onSubmit={handleRegister} style={styles.form}>
-            <div className="form-group">
-              <label className="form-label">Full Name</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Dr. John Doe"
-                value={registerForm.name}
-                onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
-                required
-                minLength={2}
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Email Address</label>
-              <input
-                type="email"
-                className="form-input"
-                placeholder="faculty@rbu.edu.in"
-                value={registerForm.email}
-                onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-                required
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder="Min. 6 characters"
-                value={registerForm.password}
-                onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-                required
-                minLength={6}
-              />
-            </div>
-
-            <button
-              type="submit"
-              style={{...styles.submitBtn, ...styles.submitBtnAlt}}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <span className="spinner-sm" style={{ borderTopColor: 'white' }}></span>
-                  Creating account...
-                </>
-              ) : (
-                'Create Faculty Account'
-              )}
-            </button>
-          </form>
-        )}
-
-        {/* Footer */}
-        <div style={styles.footer}>
-          <div style={styles.footerDivider}></div>
-          <p style={styles.footerText}>
-            Secure attendance management for Ramdeobaba University faculty
-          </p>
-          <p style={styles.footerCopyright}>
-            © 2026 Ramdeobaba University. All rights reserved.
-          </p>
+        <div className="flex space-x-6" style={{ gap: '1.5rem' }}>
+          <a className="text-xs text-gray-400 hover:text-gray-600 transition-colors" href="#">Privacy Policy</a>
+          <a className="text-xs text-gray-400 hover:text-gray-600 transition-colors" href="#">Terms of Service</a>
+          <a className="text-xs text-gray-400 hover:text-gray-600 transition-colors" href="#">Support</a>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '1rem',
-    position: 'relative',
-    overflow: 'hidden',
-    backgroundImage: `linear-gradient(135deg, rgba(9, 65, 109, 0.85) 0%, rgba(9, 65, 109, 0.7) 50%, rgba(175, 121, 160, 0.6) 100%), url(${wallpaper})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundRepeat: 'no-repeat',
-  },
-  bgPattern: {
-    position: 'absolute',
-    inset: 0,
-    backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(9, 65, 109, 0.03) 1px, transparent 0)',
-    backgroundSize: '40px 40px',
-    pointerEvents: 'none',
-  },
-  bgGlow1: {
-    position: 'absolute',
-    top: '-15%',
-    right: '-10%',
-    width: '600px',
-    height: '600px',
-    background: 'radial-gradient(circle, rgba(9, 65, 109, 0.12) 0%, transparent 60%)',
-    borderRadius: '50%',
-    pointerEvents: 'none',
-  },
-  bgGlow2: {
-    position: 'absolute',
-    bottom: '-10%',
-    left: '-15%',
-    width: '700px',
-    height: '700px',
-    background: 'radial-gradient(circle, rgba(187, 187, 227, 0.25) 0%, transparent 60%)',
-    borderRadius: '50%',
-    pointerEvents: 'none',
-  },
-  decorCircle1: {
-    position: 'absolute',
-    top: '5%',
-    right: '8%',
-    width: '200px',
-    height: '200px',
-    color: 'rgba(9, 65, 109, 0.08)',
-    pointerEvents: 'none',
-  },
-  decorCircle2: {
-    position: 'absolute',
-    bottom: '10%',
-    left: '5%',
-    width: '150px',
-    height: '150px',
-    color: 'rgba(175, 121, 160, 0.1)',
-    pointerEvents: 'none',
-  },
-  card: {
-    width: '100%',
-    maxWidth: '440px',
-    background: 'rgba(255, 255, 255, 0.85)',
-    backdropFilter: 'blur(20px)',
-    borderRadius: '24px',
-    padding: '2.5rem 0 2rem',
-    position: 'relative',
-    zIndex: 1,
-    boxShadow: '0 20px 60px rgba(9, 65, 109, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.5)',
-    border: '1px solid rgba(255, 255, 255, 0.6)',
-  },
-  header: {
-    textAlign: 'center',
-    marginBottom: '1.5rem',
-    padding: '0 2rem',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-  },
-  logoWrapper: {
-    width: '80px',
-    height: '80px',
-    borderRadius: '16px',
-    overflow: 'hidden',
-    background: 'white',
-    padding: '4px',
-    boxShadow: '0 4px 16px rgba(9, 65, 109, 0.15)',
-    marginBottom: '1rem',
-  },
-  logoImage: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    borderRadius: '12px',
-  },
-  universityInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  },
-  universityName: {
-    fontSize: '1.5rem',
-    fontWeight: 700,
-    color: '#09416D',
-    margin: 0,
-    lineHeight: 1.2,
-  },
-  portalName: {
-    color: '#6B7280',
-    fontSize: '0.9375rem',
-    margin: 0,
-    fontWeight: 500,
-  },
-  divider: {
-    height: '3px',
-    background: 'linear-gradient(90deg, transparent, #09416D, rgba(9, 65, 109, 0.5), transparent)',
-    margin: '0 2rem 1.5rem',
-    borderRadius: '2px',
-  },
-  tabs: {
-    display: 'flex',
-    margin: '0 2rem 1.5rem',
-    background: 'rgba(9, 65, 109, 0.06)',
-    borderRadius: '12px',
-    padding: '4px',
-  },
-  tab: {
-    flex: 1,
-    padding: '12px',
-    border: 'none',
-    background: 'transparent',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '0.875rem',
-    color: '#6B7280',
-    transition: 'all 200ms ease',
-  },
-  tabActive: {
-    background: 'linear-gradient(135deg, #09416D 0%, #0A5A94 100%)',
-    color: 'white',
-    boxShadow: '0 2px 8px rgba(9, 65, 109, 0.25)',
-  },
-  form: {
-    padding: '0 2rem',
-  },
-  submitBtn: {
-    width: '100%',
-    marginTop: '0.5rem',
-    padding: '14px 24px',
-    background: 'linear-gradient(135deg, #09416D 0%, #0A5A94 100%)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '12px',
-    fontWeight: 600,
-    fontSize: '0.9375rem',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    boxShadow: '0 4px 16px rgba(9, 65, 109, 0.3)',
-    transition: 'all 200ms ease',
-  },
-  submitBtnAlt: {
-    background: 'linear-gradient(135deg, #AF79A0 0%, #C294B6 100%)',
-    boxShadow: '0 4px 16px rgba(175, 121, 160, 0.3)',
-  },
-  footer: {
-    textAlign: 'center',
-    marginTop: '1.5rem',
-    padding: '0 2rem',
-  },
-  footerDivider: {
-    height: '1px',
-    background: 'linear-gradient(90deg, transparent, rgba(180, 184, 197, 0.4), transparent)',
-    marginBottom: '1rem',
-  },
-  footerText: {
-    color: '#9CA3AF',
-    fontSize: '0.75rem',
-    margin: '0 0 4px 0',
-  },
-  footerCopyright: {
-    color: '#B4B8C5',
-    fontSize: '0.6875rem',
-    margin: 0,
-  },
-};

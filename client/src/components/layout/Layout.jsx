@@ -1,34 +1,26 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- * Layout Wrapper Component
- * Provides consistent layout with Navbar for authenticated pages
- * With blurred background image
- * ═══════════════════════════════════════════════════════════════════════════
- */
-
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
-import homepageBg from '../../assets/homepage/image.png';
+import { useAuth } from '../../context/AuthContext';
+import { VolunteerChatWidget } from '../chat/ChatComponents';
+import { VolunteerCaptureWidget } from '../capture/VolunteerCaptureWidget';
 
 export default function Layout() {
+  const { user, teacher } = useAuth();
+  const currentUser = user || teacher;
+  const isVolunteer = currentUser?.role === 'volunteer';
+
   return (
     <div style={styles.layoutWrapper}>
-      {/* Blurred Background Layer */}
-      <div style={styles.bgLayer}>
-        <div style={{
-          ...styles.bgImage,
-          backgroundImage: `url(${homepageBg})`,
-        }} />
-        <div style={styles.bgOverlay} />
-      </div>
-
-      {/* Content Layer */}
       <div style={styles.contentLayer}>
         <Navbar />
         <main className="main-content" style={styles.mainContent}>
           <Outlet />
         </main>
       </div>
+      {/* Floating chat widget for volunteers */}
+      {isVolunteer && <VolunteerChatWidget />}
+      {/* Floating camera capture widget for volunteers */}
+      {isVolunteer && <VolunteerCaptureWidget />}
     </div>
   );
 }
@@ -38,30 +30,9 @@ const styles = {
     position: 'relative',
     minHeight: '100vh',
     overflow: 'hidden',
+    backgroundColor: '#f8f9fa',
+    fontFamily: '"Inter", sans-serif',
   },
-
-  // Background Layer - Fixed, blurred
-  bgLayer: {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 0,
-  },
-  bgImage: {
-    position: 'absolute',
-    inset: '-10px',
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundRepeat: 'no-repeat',
-    filter: 'blur(3px)',
-    transform: 'scale(1.02)',
-  },
-  bgOverlay: {
-    position: 'absolute',
-    inset: 0,
-    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(248, 250, 252, 0.35) 50%, rgba(255, 255, 255, 0.3) 100%)',
-  },
-
-  // Content Layer - Above background
   contentLayer: {
     position: 'relative',
     zIndex: 1,

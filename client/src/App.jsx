@@ -20,6 +20,11 @@ import ClassesPage from './pages/Classes/ClassesPage';
 import StudentsPage from './pages/Students/StudentsPage';
 import AttendancePage from './pages/Attendance/AttendancePage';
 import AnalyticsPage from './pages/Analytics/AnalyticsPage';
+import VolunteersPage from './pages/Volunteers/VolunteersPage';
+import VolunteerSchedulePage from './pages/Classes/VolunteerSchedulePage';
+import GalleryPage from './pages/Gallery/GalleryPage';
+import ProfilePage from './pages/Profile/ProfilePage';
+import DevPage from './pages/Dev/DevPage';
 
 // Styles
 import './index.css';
@@ -36,6 +41,20 @@ function RootRedirect() {
   if (isLoading) return null;
   
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
+}
+
+/**
+ * Route protection for admin only views
+ */
+function AdminRoute({ children }) {
+  const { user, teacher } = useAuth();
+  const currentUser = user || teacher;
+  
+  if (currentUser?.role === 'volunteer') {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  return children;
 }
 
 /**
@@ -61,14 +80,21 @@ function App() {
               }
             >
               <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/classes" element={<ClassesPage />} />
+              <Route path="/classes" element={<AdminRoute><ClassesPage /></AdminRoute>} />
               <Route path="/students" element={<StudentsPage />} />
+              <Route path="/volunteers" element={<AdminRoute><VolunteersPage /></AdminRoute>} />
+              <Route path="/my-schedule" element={<VolunteerSchedulePage />} />
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/gallery" element={<GalleryPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
             
             {/* Root redirect */}
             <Route path="/" element={<RootRedirect />} />
+            
+            {/* Development User Creation Route */}
+            <Route path="/dev" element={<DevPage />} />
             
             {/* Catch all - redirect to dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

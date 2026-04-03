@@ -1,92 +1,99 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- * Navbar Component - Ramdeobaba University
- * Main navigation bar with university branding, dark mode toggle, and user info
- * ═══════════════════════════════════════════════════════════════════════════
- */
-
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import universityLogo from '../../assets/logo.jpg';
+import renovatioLogo from '../../assets/brandings/renovatioLogo.png';
 
-const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: '◉' },
-  { path: '/classes', label: 'Classes', icon: '◫' },
-  { path: '/students', label: 'Students', icon: '◎' },
-  { path: '/attendance', label: 'Attendance', icon: '◧' },
-  { path: '/analytics', label: 'Analytics', icon: '◈' },
+const adminNavItems = [
+  { path: '/dashboard', label: 'DASHBOARD' },
+  { path: '/classes', label: 'CLASSES' },
+  { path: '/students', label: 'STUDENTS' },
+  { path: '/volunteers', label: 'VOLUNTEERS' },
+  { path: '/attendance', label: 'ATTENDANCE' },
+  { path: '/analytics', label: 'ANALYTICS' },
+  { path: '/gallery', label: 'GALLERY' },
+];
+
+const volunteerNavItems = [
+  { path: '/dashboard', label: 'DASHBOARD' },
+  { path: '/my-schedule', label: 'MY SCHEDULE' },
+  { path: '/students', label: 'STUDENTS' },
+  { path: '/analytics', label: 'ANALYTICS' },
+  { path: '/gallery', label: 'GALLERY' },
 ];
 
 export default function Navbar() {
-  const { teacher, logout } = useAuth();
+  const { user, teacher } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  const handleLogout = () => {
-    console.log('[NAVBAR] User clicked logout');
-    logout();
-  };
+  const currentUser = user || teacher;
+  const filteredNavItems = currentUser?.role === 'volunteer' ? volunteerNavItems : adminNavItems;
+  const profilePicUrl = currentUser?.profilePicUrl || null;
+  const initials = (currentUser?.name || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
   return (
     <nav style={styles.navbar}>
-      {/* University Branding */}
-      <Link to="/dashboard" style={styles.brandSection}>
-        <div style={styles.logoWrapper}>
-          <img 
-            src={universityLogo} 
-            alt="Ramdeobaba University" 
-            style={styles.logoImage}
-          />
-        </div>
-        <div style={styles.brandText}>
-          <span style={styles.brandName}>Ramdeobaba University</span>
-          <span style={styles.brandTagline}>Attendance Portal</span>
-        </div>
-      </Link>
+      <div style={styles.navLeft}>
+        {/* Branding */}
+        <Link to="/dashboard" style={styles.brandSection}>
+          <img src={renovatioLogo} alt="Logo" style={styles.logoImage} />
+        </Link>
 
-      {/* Navigation Links */}
-      <div style={styles.navLinks}>
-        {navItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            style={{
-              ...styles.navLink,
-              ...(location.pathname === item.path && styles.navLinkActive),
-            }}
-          >
-            <span style={styles.navIcon}>{item.icon}</span>
-            <span style={styles.navLabel}>{item.label}</span>
-          </Link>
-        ))}
+        {/* Navigation Links */}
+        <div style={styles.navLinks}>
+          {filteredNavItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                style={{ ...styles.navLink, ...(isActive ? styles.navLinkActive : {}) }}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
-      {/* User Section with Dark Mode Toggle */}
-      <div style={styles.userSection}>
-        {/* Dark Mode Toggle */}
-        <button 
-          onClick={toggleTheme} 
-          className="theme-toggle"
-          title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          aria-label={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        >
-          {isDarkMode ? '☀️' : '🌙'}
+      {/* Right section */}
+      <div style={styles.navRight}>
+        {/* Search */}
+        <div style={styles.searchBox}>
+          <svg style={styles.searchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="11" cy="11" r="8" strokeWidth="2"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65" strokeWidth="2"></line>
+          </svg>
+          <input type="text" placeholder="Search activities..." style={styles.searchInput} />
+        </div>
+
+        {/* Notifications */}
+        <button style={styles.iconBtn}>
+          <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#6B7280' }}>notifications</span>
         </button>
 
-        <div style={styles.userInfo}>
-          <div style={styles.avatar}>
-            {teacher?.name?.charAt(0).toUpperCase() || 'T'}
-          </div>
-          <div style={styles.userDetails}>
-            <span style={styles.userName}>{teacher?.name || 'Teacher'}</span>
-            <span style={styles.userRole}>Faculty</span>
-          </div>
-        </div>
-        <button onClick={handleLogout} style={styles.logoutBtn}>
-          <span style={styles.logoutIcon}>⏻</span>
-          <span>Logout</span>
+        {/* Profile avatar — navigates to /profile (no more logout here) */}
+        <button
+          style={{ ...styles.iconBtn, padding: 0 }}
+          onClick={() => navigate('/profile')}
+          title="My Profile"
+        >
+          {profilePicUrl ? (
+            <img
+              src={profilePicUrl}
+              alt="Profile"
+              style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #b91d20' }}
+            />
+          ) : (
+            <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: '#b91d20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8125rem', fontWeight: 800, color: 'white' }}>
+              {initials}
+            </div>
+          )}
         </button>
+
+        {/* Support Button */}
+        <button style={styles.supportBtn}>Support</button>
       </div>
     </nav>
   );
@@ -97,136 +104,36 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '0.75rem 1.5rem',
-    margin: '1rem',
-    borderRadius: '16px',
-    background: 'linear-gradient(135deg, rgba(9, 65, 109, 0.95) 0%, rgba(10, 90, 148, 0.92) 50%, rgba(9, 65, 109, 0.95) 100%)',
-    backdropFilter: 'blur(16px)',
-    boxShadow: '0 8px 32px rgba(9, 65, 109, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    padding: '0 32px',
+    height: '72px',
+    backgroundColor: '#ffffff',
+    borderBottom: '1px solid #E5E7EB',
+    position: 'sticky',
+    top: 0,
+    zIndex: 50,
   },
-  brandSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    textDecoration: 'none',
-  },
-  logoWrapper: {
-    width: '44px',
-    height: '44px',
-    borderRadius: '10px',
-    overflow: 'hidden',
-    background: 'white',
-    padding: '3px',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-    flexShrink: 0,
-  },
-  logoImage: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    borderRadius: '7px',
-  },
-  brandText: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0',
-  },
-  brandName: {
-    fontSize: '1rem',
-    fontWeight: 700,
-    color: 'white',
-    letterSpacing: '0.01em',
-    lineHeight: 1.2,
-  },
-  brandTagline: {
-    fontSize: '0.6875rem',
-    fontWeight: 500,
-    color: 'rgba(187, 187, 227, 0.9)',
-    letterSpacing: '0.02em',
-  },
-  navLinks: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    background: 'rgba(0, 0, 0, 0.15)',
-    padding: '4px',
-    borderRadius: '12px',
-  },
+  navLeft: { display: 'flex', alignItems: 'center', height: '100%' },
+  brandSection: { display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', marginRight: '48px' },
+  logoImage: { height: '32px', width: 'auto', objectFit: 'contain' },
+  navLinks: { display: 'flex', alignItems: 'center', gap: '28px', height: '100%' },
   navLink: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '8px 14px',
-    borderRadius: '8px',
     textDecoration: 'none',
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: '0.8125rem',
-    fontWeight: 500,
-    transition: 'all 200ms ease',
-  },
-  navLinkActive: {
-    background: 'rgba(255, 255, 255, 0.15)',
-    color: 'white',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-  },
-  navIcon: {
-    fontSize: '0.875rem',
-    opacity: 0.9,
-  },
-  navLabel: {},
-  userSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-  },
-  userInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  avatar: {
-    width: '36px',
-    height: '36px',
-    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%)',
-    border: '2px solid rgba(255, 255, 255, 0.3)',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: 'white',
-    fontWeight: 600,
-    fontSize: '0.875rem',
-  },
-  userDetails: {
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  userName: {
-    fontSize: '0.8125rem',
-    fontWeight: 600,
-    color: 'white',
-    lineHeight: 1.2,
-  },
-  userRole: {
-    fontSize: '0.6875rem',
-    color: 'rgba(187, 187, 227, 0.8)',
-  },
-  logoutBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '8px 14px',
-    background: 'rgba(255, 255, 255, 0.1)',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
-    borderRadius: '8px',
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: '#6B7280',
     fontSize: '0.75rem',
-    fontWeight: 500,
-    cursor: 'pointer',
-    transition: 'all 200ms ease',
+    fontWeight: 600,
+    letterSpacing: '0.05em',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    borderBottom: '3px solid transparent',
+    paddingTop: '3px',
+    transition: 'all 200ms',
   },
-  logoutIcon: {
-    fontSize: '0.875rem',
-  },
+  navLinkActive: { color: '#b91d20', borderBottomColor: '#b91d20' },
+  navRight: { display: 'flex', alignItems: 'center', gap: '16px' },
+  searchBox: { display: 'flex', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: '4px', padding: '8px 16px', gap: '8px' },
+  searchIcon: { width: '14px', height: '14px', color: '#9CA3AF' },
+  searchInput: { border: 'none', backgroundColor: 'transparent', outline: 'none', fontSize: '0.875rem', color: '#374151', width: '160px' },
+  iconBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },
+  supportBtn: { backgroundColor: '#b91d20', color: 'white', border: 'none', borderRadius: '4px', padding: '8px 16px', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' },
 };
