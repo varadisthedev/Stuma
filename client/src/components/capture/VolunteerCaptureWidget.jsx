@@ -125,36 +125,60 @@ export function VolunteerCaptureWidget() {
     if (!isOpen || captured) return;
     const startCam = async () => {
       try {
-        console.log('[CAPTURE] Requesting camera permission and starting webcam...');
-        // Explicitly request camera permission
-        const permResult = await navigator.permissions.query({ name: 'camera' }).catch(() => null);
-        console.log('[CAPTURE] Camera permission state:', permResult?.state);
-        
-        const s = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, 
-          audio: false 
-        });
+        console.log('[CAPTURE] Starting webcam...');
+
+        // Check if browser supports mediaDevices at all
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setError('Your browser does not support camera access. Try Chrome or Firefox over HTTPS/localhost.');
+          console.error('[CAPTURE] navigator.mediaDevices not available');
+          return;
+        }
+
+        console.log('[CAPTURE] Calling getUserMedia...');
+        let s = null;
+
+        // Try back camera first, fall back to any camera
+        try {
+          s = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+        } catch (facingErr) {
+          console.warn('[CAPTURE] Back camera failed, trying any camera:', facingErr.message);
+          s = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        }
+
+        console.log('[CAPTURE] getUserMedia succeeded. Tracks:', s.getVideoTracks().length);
         setStream(s);
+
         if (videoRef.current) {
           videoRef.current.srcObject = s;
-          await videoRef.current.play().catch(e => console.warn('[CAPTURE] video.play() error:', e));
+          // Try play, ignore autoplay policy errors (video will still show)
+          videoRef.current.play().catch(e => console.warn('[CAPTURE] video.play() warning (usually safe to ignore):', e.message));
         }
-        console.log('[CAPTURE] Webcam started successfully');
         setError('');
+        console.log('[CAPTURE] Webcam started successfully');
       } catch (err) {
-        console.error('[CAPTURE] Webcam error:', err.name, err.message);
+        console.error('[CAPTURE] Webcam error —', err.name + ':', err.message);
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-          setError('Camera permission denied. Please allow camera access in your browser settings and refresh.');
-        } else if (err.name === 'NotFoundError') {
-          setError('No camera found on this device.');
+          setError(
+            'Camera access denied. To fix: click the 🔒 lock icon in your browser address bar → Site settings → Camera → Allow, then close and reopen this panel.'
+          );
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          setError('No camera found. Make sure a camera is connected and not in use by another app.');
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          setError('Camera is already in use by another app. Close other apps using the camera and try again.');
+        } else if (err.name === 'OverconstrainedError') {
+          setError('Camera resolution not supported. Try refreshing.');
         } else {
-          setError('Could not access camera: ' + err.message);
+          setError(`Camera error: ${err.message}`);
         }
       }
     };
     startCam();
     return () => {};
   }, [isOpen, captured]);
+
 
   const stopCam = useCallback(() => {
     if (stream) {

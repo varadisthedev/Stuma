@@ -112,21 +112,24 @@ exports.startSession = async (req, res) => {
 
         console.log("[IOT] Starting session for class:", classId, "date:", date);
 
-        // Validate class exists and belongs to admin
+        // Validate class exists and belongs to admin OR is assigned to this volunteer
         const classDoc = await Class.findById(classId);
         if (!classDoc) {
-            return res.status(404).json({
-                success: false,
-                message: "Class not found",
-            });
+            return res.status(404).json({ success: false, message: 'Class not found' });
         }
 
-        if (classDoc.admin.toString() !== userId) {
-            return res.status(403).json({
-                success: false,
-                message: "Unauthorized - This class does not belong to you",
-            });
+        const User = require('../models/User');
+        const user = await User.findById(userId);
+        const isVolunteer = user && user.role === 'volunteer';
+        const isOwner = classDoc.admin.toString() === userId;
+        const isAssigned = isVolunteer && classDoc.assignedVolunteer?.toString() === userId;
+
+        if (!isOwner && !isAssigned) {
+            return res.status(403).json({ success: false, message: 'Unauthorized — this class is not assigned to you' });
         }
+
+        // Use admin ID for record ownership even when started by volunteer
+        const adminId = isVolunteer ? classDoc.admin.toString() : userId;
 
         // Check if attendance already marked for this class on this date
         const existingAttendance = await Attendance.findOne({
@@ -141,8 +144,8 @@ exports.startSession = async (req, res) => {
             });
         }
 
-        // Get all students for the admin
-        const students = await Student.find({ admin: userId }).sort({ rollNo: 1 });
+        // Get all students for the admin (use resolved adminId)
+        const students = await Student.find({ admin: adminId }).sort({ rollNo: 1 });
 
         if (students.length === 0) {
             return res.status(400).json({
@@ -151,12 +154,11 @@ exports.startSession = async (req, res) => {
             });
         }
 
-        // Check if there's already an active session for this admin
+        // Check if there's already an active session for this user
         for (const [sessionId, session] of activeSessions) {
-            if (session.adminId === userId && session.active) {
-                // End the previous session
+            if ((session.adminId === userId || session.startedBy === userId) && session.active) {
                 activeSessions.delete(sessionId);
-                console.log("[IOT] Ended previous active session:", sessionId);
+                console.log('[IOT] Ended previous active session:', sessionId);
             }
         }
 
@@ -167,7 +169,8 @@ exports.startSession = async (req, res) => {
             sessionId,
             classId,
             date,
-            adminId: userId,
+            adminId,          // actual admin who owns the class
+            startedBy: userId, // person who started (may be volunteer)
             students: students.map((s) => ({
                 _id: s._id.toString(),
                 name: s.name,
@@ -176,8 +179,8 @@ exports.startSession = async (req, res) => {
             })),
             currentIndex: 0,
             active: true,
-            hasStudent: false,  // 🔑 KEY: No student assigned yet, ESP32 will wait
-            records: {},        // { studentId: 'present' | 'absent' }
+            hasStudent: false,
+            records: {},
             createdAt: new Date(),
         };
 
@@ -223,11 +226,8 @@ exports.stopSession = async (req, res) => {
             });
         }
 
-        if (session.adminId !== userId) {
-            return res.status(403).json({
-                success: false,
-                message: "Unauthorized - This session does not belong to you",
-            });
+        if (session.adminId !== userId && session.startedBy !== userId) {
+            return res.status(403).json({ success: false, message: 'Unauthorized — session does not belong to you' });
         }
 
         // Mark session as inactive (ESP32 will see status: "ended")
@@ -237,14 +237,14 @@ exports.stopSession = async (req, res) => {
         // Build attendance records
         const records = session.students.map((student) => ({
             student: student._id,
-            status: session.records[student._id] || "absent", // Default to absent if not marked
+            status: session.records[student._id] || 'absent',
         }));
 
-        // If saveProgress is true and we have some records, save attendance
         if (saveProgress && Object.keys(session.records).length > 0) {
             const attendance = await Attendance.create({
                 class: session.classId,
-                admin: userId,
+                admin: session.adminId,
+                takenBy: session.startedBy || session.adminId,
                 date: new Date(session.date),
                 records,
             });
@@ -537,7 +537,7 @@ exports.nextStudent = async (req, res) => {
             });
         }
 
-        if (session.adminId !== userId) {
+        if (session.adminId !== userId && session.startedBy !== userId) {
             return res.status(403).json({
                 success: false,
                 message: "Unauthorized",
@@ -619,7 +619,7 @@ exports.getSessionStatus = async (req, res) => {
             });
         }
 
-        if (session.adminId !== userId) {
+        if (session.adminId !== userId && session.startedBy !== userId) {
             return res.status(403).json({
                 success: false,
                 message: "Unauthorized",
@@ -679,7 +679,7 @@ exports.skipStudent = async (req, res) => {
             });
         }
 
-        if (session.adminId !== userId) {
+        if (session.adminId !== userId && session.startedBy !== userId) {
             return res.status(403).json({
                 success: false,
                 message: "Unauthorized",

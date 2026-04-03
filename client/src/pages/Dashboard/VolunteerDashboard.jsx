@@ -5,35 +5,6 @@ import { classesAPI, studentsAPI, authAPI } from '../../services/api';
 import { formatTime } from '../../utils/helpers';
 import { DashboardSkeleton } from '../../components/ui/Skeleton';
 
-// Decorative brand-themed full-page background
-function DashboardBg() {
-  return (
-    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
-      {/* Full-screen subtle dot pattern */}
-      <div 
-        style={{ 
-          position: 'absolute', 
-          inset: 0, 
-          opacity: 1,
-          backgroundImage: 'radial-gradient(rgba(185, 29, 32, 0.4) 1.5px, transparent 1.5px)',
-          backgroundSize: '24px 24px',
-          maskImage: 'radial-gradient(ellipse at 50% 10%, rgba(0,0,0,1) 0%, rgba(0,0,0,0.4) 100%)',
-          WebkitMaskImage: 'radial-gradient(ellipse at 50% 10%, rgba(0,0,0,1) 0%, rgba(0,0,0,0.4) 100%)'
-        }} 
-      />
-      
-      {/* Large soft glows for brand color */}
-      <div style={{ position: 'absolute', top: '-15%', right: '-5%', width: '600px', height: '600px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(185,29,32,0.06) 0%, transparent 60%)' }} />
-      <div style={{ position: 'absolute', bottom: '10%', left: '-5%', width: '500px', height: '500px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(185,29,32,0.05) 0%, transparent 60%)' }} />
-      <div style={{ position: 'absolute', top: '40%', right: '25%', width: '400px', height: '400px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(185,29,32,0.03) 0%, transparent 50%)' }} />
-
-      {/* Decorative vertical accent lines */}
-      <div style={{ position: 'absolute', top: 0, right: '8%', width: '1px', height: '100%', background: 'linear-gradient(to bottom, rgba(185,29,32,0.15), rgba(185,29,32,0))' }} />
-      <div style={{ position: 'absolute', top: 0, right: '12%', width: '1px', height: '70%', background: 'linear-gradient(to bottom, transparent, rgba(185,29,32,0.1), transparent)' }} />
-    </div>
-  );
-}
-
 export default function VolunteerDashboard() {
   const { user, teacher } = useAuth();
   const currentUser = user || teacher;
@@ -117,7 +88,6 @@ export default function VolunteerDashboard() {
 
   return (
     <div style={{ position: 'relative', display: 'flex', gap: '32px', minHeight: 'calc(100vh - 120px)' }}>
-      <DashboardBg />
 
       {/* SIDEBAR */}
       <aside style={{ position: 'relative', zIndex: 1, width: '240px', flexShrink: 0, display: 'flex', flexDirection: 'column', paddingTop: '8px' }}>
@@ -150,7 +120,7 @@ export default function VolunteerDashboard() {
       </aside>
 
       {/* MAIN */}
-      <main style={{ position: 'relative', zIndex: 1, flex: 1, minWidth: 0, paddingTop: '8px', paddingBottom: '40px' }}>
+      <main style={{ flex: 1, minWidth: 0, paddingTop: '8px', paddingBottom: '40px' }}>
         {/* Title */}
         <div style={{ marginBottom: '32px' }}>
           <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', marginBottom: '10px' }}>

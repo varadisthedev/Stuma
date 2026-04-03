@@ -4,6 +4,60 @@ import { useAuth } from '../../context/AuthContext';
 import { VolunteerChatWidget } from '../chat/ChatComponents';
 import { VolunteerCaptureWidget } from '../capture/VolunteerCaptureWidget';
 
+// Global page background — subtle grid + brand accents
+// Renders behind all pages, full viewport
+function PageBackground() {
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      zIndex: 0,
+      pointerEvents: 'none',
+      overflow: 'hidden',
+    }}>
+      {/* Fine grid pattern */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: [
+          'linear-gradient(rgba(185,29,32,0.055) 1px, transparent 1px)',
+          'linear-gradient(90deg, rgba(185,29,32,0.055) 1px, transparent 1px)',
+        ].join(', '),
+        backgroundSize: '40px 40px',
+      }} />
+      {/* Soft brand glow — top right */}
+      <div style={{
+        position: 'absolute',
+        top: '-10%',
+        right: '-5%',
+        width: '55vw',
+        height: '55vw',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(185,29,32,0.055) 0%, transparent 65%)',
+      }} />
+      {/* Soft brand glow — bottom left */}
+      <div style={{
+        position: 'absolute',
+        bottom: '-10%',
+        left: '-5%',
+        width: '45vw',
+        height: '45vw',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(185,29,32,0.04) 0%, transparent 65%)',
+      }} />
+      {/* Thin vertical accent line */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        right: '6%',
+        width: '1px',
+        height: '100%',
+        background: 'linear-gradient(to bottom, rgba(185,29,32,0.12), transparent 70%)',
+      }} />
+    </div>
+  );
+}
+
 export default function Layout() {
   const { user, teacher } = useAuth();
   const currentUser = user || teacher;
@@ -11,15 +65,14 @@ export default function Layout() {
 
   return (
     <div style={styles.layoutWrapper}>
+      <PageBackground />
       <div style={styles.contentLayer}>
         <Navbar />
         <main className="main-content" style={styles.mainContent}>
           <Outlet />
         </main>
       </div>
-      {/* Floating chat widget for volunteers */}
       {isVolunteer && <VolunteerChatWidget />}
-      {/* Floating camera capture widget for volunteers */}
       {isVolunteer && <VolunteerCaptureWidget />}
     </div>
   );
@@ -29,7 +82,6 @@ const styles = {
   layoutWrapper: {
     position: 'relative',
     minHeight: '100vh',
-    overflow: 'hidden',
     backgroundColor: '#f8f9fa',
     fontFamily: '"Inter", sans-serif',
   },

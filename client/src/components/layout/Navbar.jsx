@@ -59,21 +59,12 @@ export default function Navbar() {
 
       {/* Right section */}
       <div style={styles.navRight}>
-        {/* Search */}
-        <div style={styles.searchBox}>
-          <svg style={styles.searchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <circle cx="11" cy="11" r="8" strokeWidth="2"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65" strokeWidth="2"></line>
-          </svg>
-          <input type="text" placeholder="Search activities..." style={styles.searchInput} />
-        </div>
-
         {/* Notifications */}
-        <button style={styles.iconBtn}>
+        <button style={styles.iconBtn} title="Notifications">
           <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#6B7280' }}>notifications</span>
         </button>
 
-        {/* Profile avatar — navigates to /profile (no more logout here) */}
+        {/* Profile avatar */}
         <button
           style={{ ...styles.iconBtn, padding: 0 }}
           onClick={() => navigate('/profile')}
@@ -91,9 +82,6 @@ export default function Navbar() {
             </div>
           )}
         </button>
-
-        {/* Support Button */}
-        <button style={styles.supportBtn}>Support</button>
       </div>
     </nav>
   );
@@ -130,10 +118,6 @@ const styles = {
     transition: 'all 200ms',
   },
   navLinkActive: { color: '#b91d20', borderBottomColor: '#b91d20' },
-  navRight: { display: 'flex', alignItems: 'center', gap: '16px' },
-  searchBox: { display: 'flex', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: '4px', padding: '8px 16px', gap: '8px' },
-  searchIcon: { width: '14px', height: '14px', color: '#9CA3AF' },
-  searchInput: { border: 'none', backgroundColor: 'transparent', outline: 'none', fontSize: '0.875rem', color: '#374151', width: '160px' },
+  navRight: { display: 'flex', alignItems: 'center', gap: '12px' },
   iconBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },
-  supportBtn: { backgroundColor: '#b91d20', color: 'white', border: 'none', borderRadius: '4px', padding: '8px 16px', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' },
 };
