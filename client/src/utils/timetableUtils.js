@@ -24,7 +24,7 @@ export const INDIAN_HOLIDAYS = {
   '2026-01-26': { name: 'Republic Day', emoji: '🇮🇳' },
   '2026-03-03': { name: 'Maha Shivratri', emoji: '🔱' },
   '2026-03-20': { name: 'Holi', emoji: '🎨' },
-  '2026-04-02': { name: 'Good Friday', emoji: '✝️' },
+  '2026-04-03': { name: 'Good Friday', emoji: '✝️' },
   '2026-04-14': { name: 'Ambedkar Jayanti / Tamil New Year', emoji: '📿' },
   '2026-05-01': { name: 'Maharashtra Day / Labour Day', emoji: '🏗️' },
   '2026-08-15': { name: 'Independence Day', emoji: '🇮🇳' },
