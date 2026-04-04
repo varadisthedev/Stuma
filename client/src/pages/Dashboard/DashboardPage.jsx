@@ -45,6 +45,12 @@ export default function DashboardPage() {
   const [todayClasses, setTodayClasses] = useState([]);
   const [allClasses, setAllClasses] = useState([]);
   const [studentCount, setStudentCount] = useState(0);
+  const [nowTS, setNowTS] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowTS(new Date()), 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
@@ -91,22 +97,33 @@ export default function DashboardPage() {
   );
 
   return (
-    <div style={{ position: 'relative', display: 'flex', gap: '32px', minHeight: 'calc(100vh - 120px)' }}>
+    <div className="flex flex-col md:flex-row gap-4 md:gap-8 relative" style={{ minHeight: 'calc(100vh - 120px)' }}>
       <DashboardBg />
 
       {/* LEFT SIDEBAR */}
-      <aside style={{ position: 'relative', zIndex: 1, width: '240px', flexShrink: 0, display: 'flex', flexDirection: 'column', paddingTop: '8px' }}>
+      <aside className="w-full md:w-[240px] flex-shrink-0 flex flex-col relative z-10 pt-2">
         {/* User Card */}
-        <div style={{ ...card, padding: '16px', display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '24px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#b91d20' }}>admin_panel_settings</span>
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ ...card, padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '24px', textAlign: 'center' }}>
+          {currentUser?.profilePicUrl ? (
+            <img 
+              src={currentUser.profilePicUrl} 
+              alt="Profile" 
+              style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '4px solid #FEF2F2', flexShrink: 0 }} 
+            />
+          ) : (
+            <div style={{ width: '120px', height: '120px', borderRadius: '50%', background: '#111827', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '3rem', flexShrink: 0 }}>
+              {(currentUser?.name || 'A')[0].toUpperCase()}
+            </div>
+          )}
+          <div style={{ minWidth: 0, width: '100%' }}>
+            <div style={{ fontWeight: 800, fontSize: '1rem', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {currentUser?.name || 'Administrator'}
             </div>
-            <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Admin Portal
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', marginTop: '4px' }}>
+              {nowTS.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            </div>
+            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#b91d20', marginTop: '2px' }}>
+              {nowTS.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
             </div>
           </div>
         </div>

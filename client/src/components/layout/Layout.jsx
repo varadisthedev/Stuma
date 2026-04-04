@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import { useAuth } from '../../context/AuthContext';
 import { VolunteerChatWidget } from '../chat/ChatComponents';
@@ -63,13 +63,17 @@ export default function Layout() {
   const currentUser = user || teacher;
   const isVolunteer = currentUser?.role === 'volunteer';
 
+  const location = useLocation();
+
   return (
     <div style={styles.layoutWrapper}>
       <PageBackground />
       <div style={styles.contentLayer}>
         <Navbar />
         <main className="main-content" style={styles.mainContent}>
-          <Outlet />
+          <div key={location.pathname} className="animate-fade-in" style={{ width: '100%', height: '100%' }}>
+            <Outlet />
+          </div>
         </main>
       </div>
       {isVolunteer && <VolunteerChatWidget />}
@@ -94,9 +98,10 @@ const styles = {
   },
   mainContent: {
     flex: 1,
-    padding: '24px 32px',
+    padding: 'min(5vw, 24px) min(4vw, 32px)',
     maxWidth: '1400px',
     width: '100%',
     margin: '0 auto',
+    boxSizing: 'border-box'
   },
 };

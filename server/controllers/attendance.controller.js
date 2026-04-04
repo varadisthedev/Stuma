@@ -363,7 +363,7 @@ Keep response concise and professional.
     try {
       console.log("[AI] Sending prompt to Gemini API");
       const geminiResponse = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
         {
           contents: [
             {
@@ -560,7 +560,7 @@ Keep it brief and encouraging. Use plain text, no markdown.`.trim();
 
     console.log('[OVERALL AI] Calling Gemini...');
     const geminiRes = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       { contents: [{ parts: [{ text: prompt }] }] },
       { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
     );

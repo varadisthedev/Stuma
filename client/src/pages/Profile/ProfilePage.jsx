@@ -8,7 +8,7 @@ const RED = '#b91d20';
 const card = { background: 'white', borderRadius: '16px', border: '1px solid #EBEBEB', boxShadow: '0 4px 16px rgba(0,0,0,0.06)', padding: '24px' };
 
 export default function ProfilePage() {
-  const { user, teacher, logout } = useAuth();
+  const { user, teacher, logout, updateUser } = useAuth();
   const currentUser = user || teacher;
   const navigate = useNavigate();
 
@@ -92,6 +92,7 @@ export default function ProfilePage() {
       const res = await photosAPI.uploadProfilePic(picCaptured);
       if (res.success) {
         setProfile(prev => ({ ...prev, profilePicUrl: res.profilePicUrl }));
+        updateUser({ profilePicUrl: res.profilePicUrl }); // sync with context and navbar/dashboard
         setPicMsg('Profile picture updated!');
         setIsCapturingPic(false);
         setPicCaptured(null);
@@ -121,6 +122,7 @@ export default function ProfilePage() {
       const res = await photosAPI.updateProfile({ name: editName, phone: editPhone });
       if (res.success) {
         setProfile(prev => ({ ...prev, name: res.user.name, phone: res.user.phone }));
+        updateUser({ name: res.user.name, phone: res.user.phone }); // sync with context
         setIsEditing(false);
         setSaveMsg('Profile saved!');
         setTimeout(() => setSaveMsg(''), 3000);

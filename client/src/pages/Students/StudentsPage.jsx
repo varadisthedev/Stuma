@@ -139,6 +139,7 @@ export default function StudentsPage() {
   const [success, setSuccess] = useState('');
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState('');
+  const [sectionFilter, setSectionFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
@@ -174,14 +175,18 @@ export default function StudentsPage() {
     setIsSubmitting(false);
   };
 
-  const filtered = students.filter(s =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.rollNo.toLowerCase().includes(search.toLowerCase()) ||
-    s.section.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = students.filter(s => {
+    const searchMatch = s.name.toLowerCase().includes(search.toLowerCase()) || 
+                        s.rollNo.toLowerCase().includes(search.toLowerCase()) ||
+                        s.section.toLowerCase().includes(search.toLowerCase());
+    const sectionMatch = sectionFilter ? s.section === sectionFilter : true;
+    return searchMatch && sectionMatch;
+  });
 
-  // Group by section
-  const sections = [...new Set(filtered.map(s => s.section))].sort();
+  // Group by section from ALL students (so the dropdown shows all possible sections)
+  const allSections = [...new Set(students.map(s => s.section))].sort();
+  // Sections to render for the filtered output
+  const renderSections = [...new Set(filtered.map(s => s.section))].sort();
 
   if (isLoading) return <GridPageSkeleton />;
 
@@ -197,7 +202,17 @@ export default function StudentsPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, roll, section..." style={{ ...inputStyle, width: '220px', boxSizing: 'border-box' }} />
+          <select 
+            value={sectionFilter} 
+            onChange={e => setSectionFilter(e.target.value)} 
+            style={{ ...inputStyle, width: '160px', padding: '8px 12px', cursor: 'pointer' }}
+          >
+            <option value="">All Sections</option>
+            {allSections.map(sec => (
+              <option key={sec} value={sec}>{sec}</option>
+            ))}
+          </select>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, roll, section..." style={{ ...inputStyle, width: '220px', boxSizing: 'border-box', padding: '8px 14px' }} />
           {!isVolunteer && (
             <button onClick={() => setIsModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#b91d20', color: 'white', border: 'none', borderRadius: '8px', padding: '10px 20px', fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer', boxShadow: '0 2px 8px rgba(185,29,32,0.25)', whiteSpace: 'nowrap' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>person_add</span> Add Student
@@ -224,7 +239,7 @@ export default function StudentsPage() {
               )}
             </div>
           ) : (
-            sections.map(section => (
+            renderSections.map(section => (
               <div key={section} style={{ marginBottom: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                   <span style={{ fontWeight: 700, fontSize: '0.8125rem', color: '#b91d20', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{section}</span>
@@ -290,10 +305,10 @@ export default function StudentsPage() {
           <div style={{ marginBottom: '16px' }}>
             <label style={labelStyle}>Section / Class *</label>
             <input type="text" style={inputStyle} value={formData.section} onChange={e => setFormData(p => ({ ...p, section: e.target.value.toUpperCase() }))} required placeholder="e.g. GRADE 8A, FOUNDATION" />
-            {sections.length > 0 && (
+            {allSections.length > 0 && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
                 <span style={{ fontSize: '0.75rem', color: '#6B7280', alignSelf: 'center' }}>Frequent:</span>
-                {sections.slice(0, 5).map(s => (
+                {allSections.slice(0, 5).map(s => (
                   <button 
                     key={s} 
                     type="button" 

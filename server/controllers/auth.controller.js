@@ -34,12 +34,15 @@ exports.register = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicUrl: user.profilePicUrl,
+        phone: user.phone
       },
       teacher: { // legacy support
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicUrl: user.profilePicUrl
       },
     });
   } catch (err) {
@@ -95,12 +98,16 @@ exports.login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicUrl: user.profilePicUrl,
+        phone: user.phone
       },
       user: { // and also provide 'user' for updated frontend code
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicUrl: user.profilePicUrl,
+        phone: user.phone
       }
     });
   } catch (err) {
@@ -145,12 +152,15 @@ exports.devRegister = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicUrl: user.profilePicUrl,
+        phone: user.phone
       },
       teacher: { // legacy support
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicUrl: user.profilePicUrl
       },
     });
   } catch (err) {

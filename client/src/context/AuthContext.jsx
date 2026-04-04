@@ -85,6 +85,19 @@ export function AuthProvider({ children }) {
     setIsAuthenticated(false);
   };
 
+  /**
+   * Update User - allows updating specific fields in local storage and state without logging out
+   */
+  const updateUser = (newData) => {
+    setUser(prev => {
+      const updatedUser = { ...prev, ...newData };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      // update legacy teacher key just in case
+      localStorage.setItem('teacher', JSON.stringify(updatedUser));
+      return updatedUser;
+    });
+  };
+
   // Context value
   const value = {
     user,
@@ -93,6 +106,7 @@ export function AuthProvider({ children }) {
     isAuthenticated,
     login,
     logout,
+    updateUser, // Exposed to update state
   };
 
   return (
