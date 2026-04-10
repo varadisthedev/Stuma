@@ -99,6 +99,41 @@ exports.getPhotosByClass = async (req, res) => {
 };
 
 /**
+ * Delete a photo
+ */
+exports.deletePhoto = async (req, res) => {
+  try {
+    const { photoId } = req.params;
+    console.log('[PHOTO] Delete request for photo:', photoId, 'by user:', req.userId);
+
+    const user = await User.findById(req.userId);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Only admins can delete photos.' });
+    }
+
+    const photo = await ClassPhoto.findById(photoId);
+    if (!photo) {
+      return res.status(404).json({ success: false, message: 'Photo not found.' });
+    }
+
+    if (photo.publicId) {
+      console.log('[PHOTO] Deleting from Cloudinary:', photo.publicId);
+      await cloudinary.uploader.destroy(photo.publicId).catch(e =>
+        console.warn('[PHOTO] Failed to delete from Cloudinary:', e.message)
+      );
+    }
+
+    await ClassPhoto.findByIdAndDelete(photoId);
+
+    console.log('[PHOTO] Photo deleted successfully.');
+    res.json({ success: true, message: 'Photo deleted successfully.' });
+  } catch (err) {
+    console.error('[PHOTO] Delete error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/**
  * Upload profile picture for any user (admin or volunteer)
  */
 exports.uploadProfilePic = async (req, res) => {

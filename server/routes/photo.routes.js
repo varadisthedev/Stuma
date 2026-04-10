@@ -12,6 +12,9 @@ router.get('/gallery', auth, controller.getGallery);
 // Get photos for a specific class
 router.get('/class/:classId', auth, controller.getPhotosByClass);
 
+// Delete photo (admin only)
+router.delete('/:photoId', auth, controller.deletePhoto);
+
 // Profile picture upload
 router.post('/profile-pic', auth, controller.uploadProfilePic);
 

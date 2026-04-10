@@ -6,6 +6,7 @@
  */
 
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 export default function Modal({ 
   isOpen, 
@@ -47,7 +48,7 @@ export default function Modal({
     lg: { maxWidth: '700px' },
   };
 
-  return (
+  const modalRender = (
     <div className="modal-overlay" onClick={onClose}>
       <div 
         className="modal-content animate-fade-in" 
@@ -71,4 +72,6 @@ export default function Modal({
       </div>
     </div>
   );
+
+  return createPortal(modalRender, document.body);
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { photosAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { GridPageSkeleton } from '../../components/ui/Skeleton';
@@ -30,6 +31,20 @@ export default function GalleryPage() {
     };
     load();
   }, []);
+
+  const handleDelete = async () => {
+    if (!window.confirm('Are you sure you want to completely delete this photo from the database and Cloudinary? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      await photosAPI.deletePhoto(selected._id);
+      setPhotos((prev) => prev.filter(p => p._id !== selected._id));
+      setSelected(null);
+    } catch (err) {
+      console.error('Failed to delete photo', err);
+      alert('Failed to delete photo. Please try again.');
+    }
+  };
 
   const volunteers = isAdmin
     ? [...new Map(photos.map(p => [p.volunteer?._id, { id: p.volunteer?._id, name: p.volunteer?.name }])).values()].filter(v => v.id)
@@ -121,16 +136,16 @@ export default function GalleryPage() {
       )}
 
       {/* Lightbox */}
-      {selected && (
+      {selected && createPortal(
         <div
           onClick={() => setSelected(null)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+          style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'transparent', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '5vh 20px', overflowY: 'auto' }}
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ background: 'white', borderRadius: '20px', overflow: 'hidden', width: '100%', maxWidth: '700px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+            style={{ background: 'white', border: '1px solid rgba(255,255,255,0.8)', boxShadow: '0 24px 64px rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.08)', borderRadius: '20px', overflowY: 'auto', width: '100%', maxWidth: '700px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', margin: 'auto' }}
           >
-            <img src={selected.imageUrl} alt="Full size" style={{ width: '100%', maxHeight: '60vh', objectFit: 'contain', background: '#111827' }} />
+            <img src={selected.imageUrl} alt="Full size" style={{ width: '100%', height: 'auto', maxHeight: '70vh', display: 'block', objectFit: 'contain' }} />
             <div style={{ padding: '20px' }}>
               <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#111827', marginBottom: '12px' }}>
                 {selected.metadata?.subject || selected.class?.subject}
@@ -167,10 +182,16 @@ export default function GalleryPage() {
                   🗺️ View on Google Maps
                 </a>
               )}
-              <button onClick={() => setSelected(null)} style={{ float: 'right', background: '#F9FAFB', border: '1px solid #E5E7EB', color: '#374151', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, cursor: 'pointer' }}>Close</button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
+                {isAdmin && (
+                  <button onClick={handleDelete} style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, cursor: 'pointer' }}>Delete</button>
+                )}
+                <button onClick={() => setSelected(null)} style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', color: '#374151', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, cursor: 'pointer' }}>Close</button>
+              </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

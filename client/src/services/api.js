@@ -282,6 +282,12 @@ export const photosAPI = {
         const response = await api.get('/api/photos/gallery');
         return response.data;
     },
+    /** Delete a photo (admin only) */
+    deletePhoto: async (id) => {
+        console.log('[PHOTOS] Deleting photo:', id);
+        const response = await api.delete(`/api/photos/${id}`);
+        return response.data;
+    },
     /** Get photos for a specific class */
     getByClass: async (classId) => {
         console.log('[PHOTOS] Fetching photos for class:', classId);
