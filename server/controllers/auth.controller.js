@@ -93,7 +93,7 @@ exports.login = async (req, res) => {
     res.json({
       success: true,
       token,
-      teacher: { // keep the response key as teacher to avoid breaking everything on frontend until updated
+      teacher: {
         id: user._id,
         name: user.name,
         email: user.email,
@@ -101,7 +101,7 @@ exports.login = async (req, res) => {
         profilePicUrl: user.profilePicUrl,
         phone: user.phone
       },
-      user: { // and also provide 'user' for updated frontend code
+      user: {
         id: user._id,
         name: user.name,
         email: user.email,
@@ -115,59 +115,6 @@ exports.login = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error during login",
-      error: err.message,
-    });
-  }
-};
-
-exports.devRegister = async (req, res) => {
-  try {
-    const { name, email, password, role } = req.body;
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "Email already registered",
-      });
-    }
-
-    // Hash password
-    const hashed = await bcrypt.hash(password, 10);
-
-    // Create user with explicit role
-    const user = await User.create({
-      name,
-      email,
-      password: hashed,
-      role: role || "teacher"
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "Dev User created successfully",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        profilePicUrl: user.profilePicUrl,
-        phone: user.phone
-      },
-      teacher: { // legacy support
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        profilePicUrl: user.profilePicUrl
-      },
-    });
-  } catch (err) {
-    console.error("Dev Register error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Server error during dev registration",
       error: err.message,
     });
   }

@@ -9,7 +9,6 @@ const router = express.Router();
 
 router.post("/register", registerValidation, controller.register);
 router.post("/login", loginValidation, controller.login);
-router.post("/dev-register", controller.devRegister);
 router.get("/volunteers", require("../middleware/auth.middleware"), controller.getVolunteers);
 router.post("/volunteers", require("../middleware/auth.middleware"), controller.createVolunteer);
 router.put("/volunteers/:id", require("../middleware/auth.middleware"), controller.updateVolunteer);

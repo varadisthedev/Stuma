@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { classesAPI, studentsAPI, authAPI } from '../../services/api';
+import { classesAPI, studentsAPI } from '../../services/api';
 import { formatTime } from '../../utils/helpers';
 import { DashboardSkeleton } from '../../components/ui/Skeleton';
 
@@ -58,25 +58,10 @@ export default function VolunteerDashboard() {
 
   const card = { background: 'white', borderRadius: '16px', border: '1px solid #EBEBEB', boxShadow: '0 4px 16px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04)' };
 
-  const sidebarLink = (to, icon, label, active = false) => (
-    <Link to={to} style={{
-      display: 'flex', alignItems: 'center', gap: '12px',
-      padding: '10px 16px', borderRadius: '10px', textDecoration: 'none',
-      fontSize: '0.875rem', fontWeight: 600, transition: 'all 150ms',
-      color: active ? '#b91d20' : '#6B7280',
-      background: active ? '#FEF2F2' : 'transparent',
-      borderLeft: `3px solid ${active ? '#b91d20' : 'transparent'}`,
-    }}>
-      <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{icon}</span>
-      {label}
-    </Link>
-  );
-
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  
-  // Upcoming = future dates OR today but class hasn't ended yet
+
   const upcoming = myClasses
     .filter(c => {
       if (c.date > todayStr) return true;
@@ -93,51 +78,10 @@ export default function VolunteerDashboard() {
   const past = myClasses.filter(c => c.date < todayStr || (c.date === todayStr && (() => { const [eh, em] = (c.endTime || '00:00').split(':').map(Number); return (eh * 60 + em) <= currentMinutes; })()));
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 md:gap-8 relative" style={{ minHeight: 'calc(100vh - 120px)' }}>
-
-      {/* SIDEBAR */}
-      <aside className="w-full md:w-[240px] flex-shrink-0 flex flex-col relative z-10 pt-2">
-        <div style={{ ...card, padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '24px', textAlign: 'center' }}>
-          {currentUser?.profilePicUrl ? (
-            <img 
-              src={currentUser.profilePicUrl} 
-              alt="Profile" 
-              style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '4px solid #FEF2F2', flexShrink: 0 }} 
-            />
-          ) : (
-            <div style={{ width: '120px', height: '120px', borderRadius: '50%', background: '#b91d20', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '3rem', flexShrink: 0 }}>
-              {(currentUser?.name || 'V')[0].toUpperCase()}
-            </div>
-          )}
-          <div style={{ minWidth: 0, width: '100%' }}>
-            <div style={{ fontWeight: 800, fontSize: '1rem', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {currentUser?.name || 'Volunteer'}
-            </div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', marginTop: '4px' }}>
-              {nowTS.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-            </div>
-            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#b91d20', marginTop: '2px' }}>
-              {nowTS.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          </div>
-        </div>
-
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-          {sidebarLink('/dashboard', 'grid_view', 'Overview', true)}
-          {sidebarLink('/my-schedule', 'calendar_month', 'My Schedule')}
-          {sidebarLink('/students', 'people', 'Students')}
-          {sidebarLink('/analytics', 'bar_chart', 'Analytics')}
-        </nav>
-
-        <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '16px', borderTop: '1px solid #F3F4F6' }}>
-          <a href="#" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#9CA3AF', textDecoration: 'none', fontSize: '0.8125rem', fontWeight: 500, padding: '6px 16px' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>help</span> Help Center
-          </a>
-        </div>
-      </aside>
+    <div className="relative" style={{ minHeight: 'calc(100vh - 120px)' }}>
 
       {/* MAIN */}
-      <main style={{ flex: 1, minWidth: 0, paddingTop: '8px', paddingBottom: '40px' }}>
+      <main style={{ paddingTop: '8px', paddingBottom: '40px' }}>
         {/* Title */}
         <div style={{ marginBottom: '32px' }}>
           <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', marginBottom: '10px' }}>
@@ -186,13 +130,6 @@ export default function VolunteerDashboard() {
               </div>
               <span className="material-symbols-outlined" style={{ fontSize: '24px', color: '#b91d20' }}>arrow_forward</span>
             </Link>
-
-            <div style={{ ...card, padding: '20px' }}>
-              <h3 style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#b91d20', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>Foundation Alert</h3>
-              <p style={{ fontSize: '0.875rem', color: '#6B7280', lineHeight: 1.6, fontWeight: 500 }}>
-                All weekend sessions require mandatory check-in via the mobile portal. Ensure student attendance is logged within 15 minutes of session start.
-              </p>
-            </div>
           </div>
 
           {/* Right: Schedule preview */}

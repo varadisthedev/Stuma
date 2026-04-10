@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { classesAPI, studentsAPI, attendanceAPI, iotAPI } from '../../services/api';
+import { classesAPI, studentsAPI, attendanceAPI } from '../../services/api';
 import { formatTime, toISODateString } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import { ListPageSkeleton } from '../../components/ui/Skeleton';
@@ -39,50 +39,9 @@ export default function AttendancePage() {
   const [attendance, setAttendance] = useState({});
   const [sessionNote, setSessionNote] = useState('');
 
-  // IoT Mode State
-  const [isIoTMode, setIsIoTMode] = useState(false);
-  const [iotSession, setIotSession] = useState(null);
-  const [iotStatus, setIotStatus] = useState(null);
-  const pollIntervalRef = useRef(null);
-  const [autoNextEnabled, setAutoNextEnabled] = useState(false);
-  const autoNextIntervalRef = useRef(null);
-
   useEffect(() => {
     loadData();
-    return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-      if (autoNextIntervalRef.current) clearInterval(autoNextIntervalRef.current);
-    };
   }, []);
-
-  useEffect(() => {
-    if (iotSession?.sessionId && isIoTMode) {
-      pollIntervalRef.current = setInterval(async () => {
-        try {
-          const status = await iotAPI.getSessionStatus(iotSession.sessionId);
-          setIotStatus(status);
-        } catch (err) {
-          console.error('[IOT] Poll error:', err);
-        }
-      }, 2000);
-    }
-    return () => {
-      if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
-    };
-  }, [iotSession?.sessionId, isIoTMode]);
-
-  useEffect(() => {
-    if (autoNextEnabled && isIoTMode && iotSession?.sessionId) {
-      autoNextIntervalRef.current = setInterval(async () => {
-        if (iotStatus && !iotStatus.hasStudent && iotStatus.currentIndex < iotStatus.totalStudents) {
-          try { await iotAPI.nextStudent(iotSession.sessionId); } catch (err) {}
-        }
-      }, 6000);
-    }
-    return () => {
-      if (autoNextIntervalRef.current) { clearInterval(autoNextIntervalRef.current); autoNextIntervalRef.current = null; }
-    };
-  }, [autoNextEnabled, isIoTMode, iotSession?.sessionId, iotStatus?.hasStudent, iotStatus?.currentIndex]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -141,32 +100,7 @@ export default function AttendancePage() {
     setIsSubmitting(false);
   };
 
-  const handleStartIoT = async () => {
-    if (!selectedClassId || !selectedDate) { setError('Select a class and date first'); return; }
-    setError('');
-    setIsSubmitting(true);
-    try {
-      const res = await iotAPI.startSession(selectedClassId, selectedDate);
-      if (res.success) { setIotSession(res); setIsIoTMode(true); }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to start IoT session');
-    }
-    setIsSubmitting(false);
-  };
 
-  const handleStopIoT = async (save = true) => {
-    if (!iotSession?.sessionId) return;
-    setIsSubmitting(true);
-    try {
-      const res = await iotAPI.stopSession(iotSession.sessionId, save);
-      if (res.success) {
-        setSuccess(save ? '✅ Attendance saved!' : 'Session ended.');
-        setIotSession(null); setIotStatus(null); setIsIoTMode(false); setAutoNextEnabled(false);
-        if (save && res.attendanceId) setTimeout(() => navigate(`/analytics?classId=${selectedClassId}`), 1500);
-      }
-    } catch (err) { setError(err.response?.data?.message || 'Failed to stop session'); }
-    setIsSubmitting(false);
-  };
 
   const presentCount = Object.values(attendance).filter(s => s === 'present').length;
   const absentCount = Object.values(attendance).filter(s => s === 'absent').length;
@@ -208,7 +142,6 @@ export default function AttendancePage() {
               style={{ ...inputStyle, appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', paddingRight: '40px', cursor: 'pointer' }}
               value={selectedClassId}
               onChange={e => setSelectedClassId(e.target.value)}
-              disabled={isIoTMode}
             >
               <option value="">-- Choose a class --</option>
               {allClasses.map(cls => (
@@ -226,7 +159,6 @@ export default function AttendancePage() {
               value={selectedDate}
               onChange={e => setSelectedDate(e.target.value)}
               max={toISODateString(new Date())}
-              disabled={isIoTMode}
             />
           </div>
         </div>
@@ -250,104 +182,7 @@ export default function AttendancePage() {
         )}
       </div>
 
-      {/* IoT Integration Section */}
-      {!isIoTMode && (
-        <div style={{ ...card, padding: '20px', marginBottom: '20px', border: '1.5px dashed #E5E7EB', background: 'linear-gradient(135deg, #f8faff 0%, #fef9ff 100%)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>📡</div>
-            <div style={{ flex: 1, minWidth: '180px' }}>
-              <div style={{ fontWeight: 700, color: '#111827', fontSize: '0.9375rem', marginBottom: '2px' }}>IoT Device Attendance</div>
-              <div style={{ fontSize: '0.8125rem', color: '#6B7280' }}>Use ESP32 + touch sensor for automated roll call</div>
-            </div>
-            <button
-              onClick={handleStartIoT}
-              disabled={isSubmitting || !selectedClassId || !selectedDate}
-              style={{ background: selectedClassId ? '#1D4ED8' : '#E5E7EB', color: selectedClassId ? 'white' : '#9CA3AF', border: 'none', borderRadius: '10px', padding: '10px 20px', fontWeight: 700, fontSize: '0.875rem', cursor: selectedClassId ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap', boxShadow: selectedClassId ? '0 2px 8px rgba(29,78,216,0.25)' : 'none' }}
-            >
-              {isSubmitting ? 'Starting...' : '🚀 Start IoT Session'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* IoT Active Session */}
-      {isIoTMode && iotSession && (
-        <div style={{ ...card, padding: '24px', marginBottom: '20px', border: '2px solid rgba(34,197,94,0.4)', background: 'linear-gradient(135deg, rgba(34,197,94,0.05) 0%, rgba(16,185,129,0.03) 100%)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 0 4px rgba(34,197,94,0.2)', display: 'inline-block' }} />
-            <h3 style={{ margin: 0, fontWeight: 800, color: '#111827' }}>IoT Session Active</h3>
-            <span style={{ marginLeft: 'auto', background: '#F0FDF4', color: '#16A34A', fontSize: '0.75rem', fontWeight: 700, padding: '4px 10px', borderRadius: '8px' }}>LIVE</span>
-          </div>
-
-          <div style={{ background: '#F9FAFB', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', fontFamily: 'monospace', fontSize: '0.875rem', color: '#6B7280' }}>
-            Session ID: <strong style={{ color: '#111827' }}>{iotSession.sessionId}</strong>
-          </div>
-
-          {/* Auto-next toggle */}
-          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: '20px', userSelect: 'none' }}>
-            <div
-              onClick={() => setAutoNextEnabled(p => !p)}
-              style={{ width: '44px', height: '24px', borderRadius: '12px', background: autoNextEnabled ? '#22C55E' : '#D1D5DB', position: 'relative', transition: 'background 200ms', flexShrink: 0 }}
-            >
-              <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'white', position: 'absolute', top: '2px', left: autoNextEnabled ? '22px' : '2px', transition: 'left 200ms', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
-            </div>
-            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>Auto-Next {autoNextEnabled ? '(ON)' : '(OFF)'}</span>
-          </label>
-
-          {iotStatus && (
-            <>
-              {/* Progress bar */}
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6B7280' }}>{iotStatus.currentIndex} / {iotStatus.totalStudents} processed</span>
-                  <div style={{ display: 'flex', gap: '12px', fontSize: '0.75rem', fontWeight: 700 }}>
-                    <span style={{ color: '#16A34A' }}>✓ {iotStatus.summary?.present || 0}</span>
-                    <span style={{ color: RED }}>✗ {iotStatus.summary?.absent || 0}</span>
-                  </div>
-                </div>
-                <div style={{ height: '8px', background: '#E5E7EB', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${(iotStatus.currentIndex / Math.max(iotStatus.totalStudents, 1)) * 100}%`, background: 'linear-gradient(90deg, #22C55E, #4ADE80)', borderRadius: '4px', transition: 'width 300ms ease' }} />
-                </div>
-              </div>
-
-              {/* Current student card */}
-              <div style={{ background: 'white', borderRadius: '12px', padding: '20px', textAlign: 'center', border: '1px solid #E5E7EB', marginBottom: '16px' }}>
-                {iotStatus.currentIndex >= iotStatus.totalStudents ? (
-                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#16A34A' }}>✅ All students processed!</div>
-                ) : !iotStatus.hasStudent ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '2.5rem' }}>⏳</span>
-                    <div style={{ fontWeight: 600, color: '#6B7280' }}>Waiting to assign student</div>
-                    <button onClick={async () => { try { await iotAPI.nextStudent(iotSession.sessionId); } catch(e) {} }} style={{ background: RED, color: 'white', border: 'none', borderRadius: '8px', padding: '8px 20px', fontWeight: 700, cursor: 'pointer' }}>➡️ Next Student</button>
-                  </div>
-                ) : (
-                  <div>
-                    <div style={{ fontSize: '0.75rem', color: '#9CA3AF', marginBottom: '4px' }}>Student {iotStatus.currentIndex + 1} of {iotStatus.totalStudents}</div>
-                    <div style={{ background: '#F0FDF4', color: '#16A34A', fontSize: '0.75rem', fontWeight: 700, padding: '2px 10px', borderRadius: '8px', display: 'inline-block', marginBottom: '8px' }}>📲 Sent to ESP32</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#111827', marginBottom: '8px' }}>{iotStatus.currentStudent?.name}</div>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                      <span style={{ background: '#FEF2F2', color: RED, fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px', borderRadius: '8px' }}>Roll #{iotStatus.currentStudent?.rollNo}</span>
-                    </div>
-                    <button onClick={async () => { try { await iotAPI.skipStudent(iotSession.sessionId); } catch(e) {} }} style={{ marginTop: '12px', background: '#F9FAFB', border: '1px solid #E5E7EB', color: '#6B7280', borderRadius: '8px', padding: '6px 16px', fontWeight: 600, cursor: 'pointer', fontSize: '0.8125rem' }}>⏭ Skip</button>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={() => handleStopIoT(true)} disabled={isSubmitting} style={{ background: '#16A34A', color: 'white', border: 'none', borderRadius: '10px', padding: '10px 24px', fontWeight: 700, cursor: 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
-              ✓ Save & End Session
-            </button>
-            <button onClick={() => handleStopIoT(false)} disabled={isSubmitting} style={{ background: '#F9FAFB', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '10px 24px', fontWeight: 700, cursor: 'pointer' }}>
-              ✗ Cancel Session
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Manual Attendance */}
-      {!isIoTMode && (
         <>
           {students.length === 0 ? (
             <div style={{ ...card, padding: '48px', textAlign: 'center' }}>
@@ -452,7 +287,6 @@ export default function AttendancePage() {
             </>
           )}
         </>
-      )}
     </div>
   );
 }

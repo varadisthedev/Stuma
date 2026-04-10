@@ -255,7 +255,7 @@ export default function ClassesPage() {
 
           <div style={fieldStyle}>
             <label style={labelStyle}>Subject Name</label>
-            <input type="text" name="subject" style={inputStyle} placeholder="e.g., Mathematics, Physics" value={formData.subject} onChange={handleInputChange} required minLength={2} />
+            <input type="text" autoComplete="off" name="subject" style={inputStyle} placeholder="e.g., Mathematics, Physics" value={formData.subject} onChange={handleInputChange} required minLength={2} />
           </div>
 
           <div style={{ display: 'flex', gap: '16px', marginBottom: '18px' }}>

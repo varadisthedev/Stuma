@@ -9,7 +9,6 @@ const classRoutes = require("./routes/class.routes");
 const studentRoutes = require("./routes/student.routes");
 const attendanceRoutes = require("./routes/attendance.routes");
 const messageRoutes = require("./routes/message.routes");
-const iotRoutes = require("./routes/iot.routes");
 const photoRoutes = require("./routes/photo.routes");
 const alertRoutes = require("./routes/alert.routes");
 
@@ -36,7 +35,6 @@ app.use("/api/classes", classRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/messages", messageRoutes);
-app.use("/api/iot", iotRoutes);
 app.use("/api/photos", photoRoutes);
 app.use("/api/alerts", alertRoutes);
 

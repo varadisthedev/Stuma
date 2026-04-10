@@ -24,7 +24,6 @@ import VolunteersPage from './pages/Volunteers/VolunteersPage';
 import VolunteerSchedulePage from './pages/Classes/VolunteerSchedulePage';
 import GalleryPage from './pages/Gallery/GalleryPage';
 import ProfilePage from './pages/Profile/ProfilePage';
-import DevPage from './pages/Dev/DevPage';
 
 // Styles
 import './index.css';
@@ -93,8 +92,6 @@ function App() {
             {/* Root redirect */}
             <Route path="/" element={<RootRedirect />} />
             
-            {/* Development User Creation Route */}
-            <Route path="/dev" element={<DevPage />} />
             
             {/* Catch all - redirect to dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

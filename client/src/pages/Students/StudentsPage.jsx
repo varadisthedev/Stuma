@@ -295,16 +295,16 @@ export default function StudentsPage() {
           <div style={{ display: 'flex', gap: '14px', marginBottom: '16px' }}>
             <div style={{ flex: 2 }}>
               <label style={labelStyle}>Full Name *</label>
-              <input type="text" style={inputStyle} value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} required placeholder="Student's full name" />
+              <input type="text" autoComplete="name" style={inputStyle} value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} required placeholder="Student's full name" />
             </div>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Roll No *</label>
-              <input type="text" style={inputStyle} value={formData.rollNo} onChange={e => setFormData(p => ({ ...p, rollNo: e.target.value }))} required placeholder="e.g. 101" />
+              <input type="text" autoComplete="off" style={inputStyle} value={formData.rollNo} onChange={e => setFormData(p => ({ ...p, rollNo: e.target.value }))} required placeholder="e.g. 101" />
             </div>
           </div>
           <div style={{ marginBottom: '16px' }}>
             <label style={labelStyle}>Section / Class *</label>
-            <input type="text" style={inputStyle} value={formData.section} onChange={e => setFormData(p => ({ ...p, section: e.target.value.toUpperCase() }))} required placeholder="e.g. GRADE 8A, FOUNDATION" />
+            <input type="text" autoComplete="off" style={inputStyle} value={formData.section} onChange={e => setFormData(p => ({ ...p, section: e.target.value.toUpperCase() }))} required placeholder="e.g. GRADE 8A, FOUNDATION" />
             {allSections.length > 0 && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
                 <span style={{ fontSize: '0.75rem', color: '#6B7280', alignSelf: 'center' }}>Frequent:</span>

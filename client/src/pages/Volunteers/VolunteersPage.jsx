@@ -356,7 +356,7 @@ export default function VolunteersPage() {
           {formError && <Alert type="error" message={formError} />}
           <div style={{ marginBottom: '16px' }}>
             <label style={labelStyle}>Full Name *</label>
-            <input type="text" style={inputStyle} value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} required placeholder="Volunteer's full name" />
+            <input type="text" autoComplete="name" style={inputStyle} value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} required placeholder="Volunteer's full name" />
           </div>
           <div style={{ marginBottom: '16px' }}>
             <label style={labelStyle}>Email Address *</label>
@@ -364,7 +364,7 @@ export default function VolunteersPage() {
           </div>
           <div style={{ marginBottom: '4px' }}>
             <label style={labelStyle}>Initial Password *</label>
-            <input type="password" style={inputStyle} value={formData.password} onChange={e => setFormData(p => ({ ...p, password: e.target.value }))} required placeholder="Min 6 characters" minLength={6} />
+            <input type="password" autoComplete="new-password" style={inputStyle} value={formData.password} onChange={e => setFormData(p => ({ ...p, password: e.target.value }))} required placeholder="Min 6 characters" minLength={6} />
           </div>
         </form>
       </Modal>
@@ -387,7 +387,7 @@ export default function VolunteersPage() {
           {formError && <Alert type="error" message={formError} />}
           <div style={{ marginBottom: '16px' }}>
             <label style={labelStyle}>Full Name *</label>
-            <input type="text" style={inputStyle} value={editFormData.name} onChange={e => setEditFormData(p => ({ ...p, name: e.target.value }))} required />
+            <input type="text" autoComplete="name" style={inputStyle} value={editFormData.name} onChange={e => setEditFormData(p => ({ ...p, name: e.target.value }))} required />
           </div>
           <div style={{ marginBottom: '16px' }}>
             <label style={labelStyle}>Email Address *</label>
@@ -399,7 +399,7 @@ export default function VolunteersPage() {
           </div>
           <div style={{ marginBottom: '4px' }}>
             <label style={labelStyle}>New Password (Optional)</label>
-            <input type="password" style={inputStyle} value={editFormData.password} onChange={e => setEditFormData(p => ({ ...p, password: e.target.value }))} placeholder="Leave blank to keep unchanged" minLength={6} />
+            <input type="password" autoComplete="new-password" style={inputStyle} value={editFormData.password} onChange={e => setEditFormData(p => ({ ...p, password: e.target.value }))} placeholder="Leave blank to keep unchanged" minLength={6} />
           </div>
         </form>
       </Modal>
