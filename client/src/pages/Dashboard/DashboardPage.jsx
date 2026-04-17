@@ -36,7 +36,6 @@ function DashboardBg() {
 }
 
 export default function DashboardPage() {
-  const navigate = useNavigate();
   const { teacher, user } = useAuth();
   const currentUser = user || teacher;
 
