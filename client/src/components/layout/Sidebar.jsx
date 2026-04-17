@@ -22,7 +22,7 @@ const volunteerNavItems = [
   { path: '/gallery',     label: 'Gallery',      icon: 'collections' },
 ];
 
-function AlertsDropdown({ currentUser }) {
+function AlertsDropdown({ currentUser, collapsed }) {
   const [isOpen, setIsOpen] = useState(false);
   const [alerts, setAlerts] = useState([]);
   const [newMsg, setNewMsg] = useState('');
@@ -62,23 +62,38 @@ function AlertsDropdown({ currentUser }) {
     <div style={{ position: 'relative' }} ref={dropdownRef}>
       <button
         onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
-        style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '10px 16px', borderRadius: '10px', color: '#6B7280', fontSize: '0.875rem', fontWeight: 600, transition: 'all 150ms' }}
+        title="Notifications"
+        style={{
+          display: 'flex', alignItems: 'center', gap: collapsed ? 0 : '10px',
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+          padding: collapsed ? '10px 0' : '10px 16px', borderRadius: '10px',
+          color: '#6B7280', fontSize: '0.875rem', fontWeight: 600,
+          transition: 'all 200ms ease', overflow: 'hidden',
+        }}
         onMouseEnter={e => { e.currentTarget.style.background = '#F9FAFB'; e.currentTarget.style.color = '#111827'; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#6B7280'; }}
       >
-        <span className="material-symbols-outlined" style={{ fontSize: '20px', position: 'relative' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '20px', flexShrink: 0 }}>
           {alerts.length > 0 ? 'notifications_active' : 'notifications'}
         </span>
-        Notifications
-        {alerts.length > 0 && (
-          <span style={{ marginLeft: 'auto', background: '#e11d48', color: 'white', fontSize: '0.65rem', fontWeight: 700, padding: '1px 6px', borderRadius: '10px' }}>
-            {alerts.length}
-          </span>
+        {!collapsed && (
+          <>
+            <span style={{ whiteSpace: 'nowrap' }}>Notifications</span>
+            {alerts.length > 0 && (
+              <span style={{ marginLeft: 'auto', background: '#e11d48', color: 'white', fontSize: '0.65rem', fontWeight: 700, padding: '1px 6px', borderRadius: '10px' }}>
+                {alerts.length}
+              </span>
+            )}
+          </>
+        )}
+        {collapsed && alerts.length > 0 && (
+          <span style={{ position: 'absolute', top: '6px', right: '6px', width: '8px', height: '8px', background: '#e11d48', borderRadius: '50%' }} />
         )}
       </button>
 
       {isOpen && (
-        <div style={{ position: 'absolute', bottom: '48px', left: '100%', marginLeft: '8px', width: '300px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 12px 32px rgba(0,0,0,0.15)', border: '1px solid #E5E7EB', zIndex: 200, overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', bottom: '48px', left: collapsed ? '64px' : '100%', marginLeft: collapsed ? '4px' : '8px', width: '300px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 12px 32px rgba(0,0,0,0.15)', border: '1px solid #E5E7EB', zIndex: 200, overflow: 'hidden' }}>
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #E5E7EB', backgroundColor: '#F9FAFB', fontWeight: 600, fontSize: '0.875rem' }}>
             Alerts &amp; Notifications
           </div>
@@ -123,7 +138,7 @@ function AlertsDropdown({ currentUser }) {
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({ collapsed, onToggle }) {
   const { user, teacher } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -134,17 +149,47 @@ export default function Sidebar() {
   const profilePicUrl = currentUser?.profilePicUrl || null;
   const initials = (currentUser?.name || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
-  const SidebarContent = () => (
+  const SidebarContent = ({ forMobile = false }) => (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Logo */}
-      <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid #F3F4F6' }}>
-        <Link to="/dashboard" onClick={() => setIsMobileOpen(false)} style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
-          <img src={renovatioLogo} alt="Renovatio" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
-        </Link>
+      {/* Logo + Toggle */}
+      <div style={{
+        padding: collapsed && !forMobile ? '20px 0' : '24px 20px 20px',
+        borderBottom: '1px solid #F3F4F6',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: collapsed && !forMobile ? 'center' : 'space-between',
+        position: 'relative',
+      }}>
+        {(!collapsed || forMobile) && (
+          <Link to="/dashboard" onClick={() => setIsMobileOpen(false)} style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
+            <img src={renovatioLogo} alt="Renovatio" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
+          </Link>
+        )}
+
+        {/* Collapse toggle – desktop only */}
+        {!forMobile && (
+          <button
+            onClick={onToggle}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '28px', height: '28px', borderRadius: '8px',
+              background: 'transparent', border: '1px solid #E5E7EB',
+              cursor: 'pointer', color: '#9CA3AF', flexShrink: 0,
+              transition: 'all 150ms ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F3F4F6'; e.currentTarget.style.color = '#374151'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9CA3AF'; }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px', transition: 'transform 200ms ease', transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+              chevron_left
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Nav Links */}
-      <nav style={{ flex: 1, padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto' }}>
+      <nav style={{ flex: 1, padding: '16px 8px', display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto' }}>
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
@@ -152,32 +197,46 @@ export default function Sidebar() {
               key={item.path}
               to={item.path}
               onClick={() => setIsMobileOpen(false)}
+              title={collapsed && !forMobile ? item.label : undefined}
               style={{
-                display: 'flex', alignItems: 'center', gap: '12px',
-                padding: '10px 16px', borderRadius: '10px', textDecoration: 'none',
+                display: 'flex', alignItems: 'center',
+                gap: collapsed && !forMobile ? 0 : '12px',
+                justifyContent: collapsed && !forMobile ? 'center' : 'flex-start',
+                padding: collapsed && !forMobile ? '10px 0' : '10px 16px',
+                borderRadius: '10px', textDecoration: 'none',
                 fontSize: '0.875rem', fontWeight: 600, transition: 'all 150ms',
                 color: isActive ? '#b91d20' : '#6B7280',
                 background: isActive ? '#FEF2F2' : 'transparent',
                 borderLeft: `3px solid ${isActive ? '#b91d20' : 'transparent'}`,
+                overflow: 'hidden',
               }}
               onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = '#F9FAFB'; e.currentTarget.style.color = '#111827'; }}}
               onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6B7280'; }}}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{item.icon}</span>
-              {item.label}
+              <span className="material-symbols-outlined" style={{ fontSize: '20px', flexShrink: 0 }}>{item.icon}</span>
+              {(!collapsed || forMobile) && <span style={{ whiteSpace: 'nowrap' }}>{item.label}</span>}
             </Link>
           );
         })}
       </nav>
 
       {/* Bottom: Alerts + Profile */}
-      <div style={{ padding: '12px', borderTop: '1px solid #F3F4F6', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <AlertsDropdown currentUser={currentUser} />
+      <div style={{ padding: '12px 8px', borderTop: '1px solid #F3F4F6', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <AlertsDropdown currentUser={currentUser} collapsed={collapsed && !forMobile} />
 
         {/* Profile Button */}
         <button
           onClick={() => { navigate('/profile'); setIsMobileOpen(false); }}
-          style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '10px 16px', borderRadius: '10px', textAlign: 'left', transition: 'background 150ms' }}
+          title={collapsed && !forMobile ? currentUser?.name : undefined}
+          style={{
+            display: 'flex', alignItems: 'center',
+            gap: collapsed && !forMobile ? 0 : '12px',
+            justifyContent: collapsed && !forMobile ? 'center' : 'flex-start',
+            width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+            padding: collapsed && !forMobile ? '10px 0' : '10px 16px',
+            borderRadius: '10px', textAlign: 'left', transition: 'background 150ms',
+            overflow: 'hidden',
+          }}
           onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
           onMouseLeave={e => e.currentTarget.style.background = 'none'}
         >
@@ -188,11 +247,15 @@ export default function Sidebar() {
               {initials}
             </div>
           )}
-          <div style={{ overflow: 'hidden', flex: 1 }}>
-            <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser?.name}</div>
-            <div style={{ fontSize: '0.65rem', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{currentUser?.role}</div>
-          </div>
-          <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#D1D5DB', flexShrink: 0 }}>chevron_right</span>
+          {(!collapsed || forMobile) && (
+            <>
+              <div style={{ overflow: 'hidden', flex: 1 }}>
+                <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser?.name}</div>
+                <div style={{ fontSize: '0.65rem', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{currentUser?.role}</div>
+              </div>
+              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#D1D5DB', flexShrink: 0 }}>chevron_right</span>
+            </>
+          )}
         </button>
       </div>
     </div>
@@ -201,7 +264,7 @@ export default function Sidebar() {
   return (
     <>
       {/* Mobile top bar - only shows on small screens */}
-      <div className="md:hidden" style={{ position: 'sticky', top: 0, zIndex: 40, height: '60px', background: 'white', borderBottom: '1px solid #F3F4F6', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px' }}>
+      <div className="md:hidden" style={{ position: 'sticky', top: 0, zIndex: 40, height: '60px', background: 'white', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px' }}>
         <button onClick={() => setIsMobileOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
           <span className="material-symbols-outlined" style={{ fontSize: '24px', color: '#6B7280' }}>menu</span>
         </button>
@@ -216,7 +279,18 @@ export default function Sidebar() {
       </div>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex" style={{ position: 'fixed', top: 0, left: 0, bottom: 0, width: '240px', background: 'white', borderRight: '1px solid #F3F4F6', flexDirection: 'column', zIndex: 50, boxShadow: '2px 0 12px rgba(0,0,0,0.04)' }}>
+      <aside
+        className="hidden md:flex"
+        style={{
+          position: 'fixed', top: 0, left: 0, bottom: 0,
+          width: collapsed ? '64px' : '240px',
+          background: 'white', borderRight: '1px solid #F3F4F6',
+          flexDirection: 'column', zIndex: 50,
+          boxShadow: '2px 0 12px rgba(0,0,0,0.04)',
+          transition: 'width 250ms cubic-bezier(0.4,0,0.2,1)',
+          overflow: 'hidden',
+        }}
+      >
         <SidebarContent />
       </aside>
 
@@ -230,7 +304,7 @@ export default function Sidebar() {
                 <span className="material-symbols-outlined" style={{ color: '#6B7280' }}>close</span>
               </button>
             </div>
-            <SidebarContent />
+            <SidebarContent forMobile={true} />
           </aside>
         </>
       )}

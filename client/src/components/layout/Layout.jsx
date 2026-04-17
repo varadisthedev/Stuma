@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { useAuth } from '../../context/AuthContext';
@@ -62,26 +63,41 @@ export default function Layout() {
   const { user, teacher } = useAuth();
   const currentUser = user || teacher;
   const isVolunteer = currentUser?.role === 'volunteer';
-
   const location = useLocation();
+
+  // Sidebar collapsed state — owned here so content area margin stays in sync
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const SIDEBAR_EXPANDED = 240;
+  const SIDEBAR_COLLAPSED = 64;
+  const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED;
 
   return (
     <div style={styles.layoutWrapper}>
       <PageBackground />
-      <Sidebar />
-      <div className="md:ml-[240px]" style={styles.contentLayer}>
+      <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(prev => !prev)} />
+
+      {/* Content shifts with sidebar smoothly */}
+      <div
+        style={{
+          ...styles.contentLayer,
+          marginLeft: `${sidebarWidth}px`,
+          transition: 'margin-left 250ms cubic-bezier(0.4,0,0.2,1)',
+        }}
+        className="hidden-mobile-margin"
+      >
         <main className="main-content" style={styles.mainContent}>
           <div key={location.pathname} className="animate-fade-in" style={{ width: '100%', height: '100%' }}>
             <Outlet />
           </div>
         </main>
-        
+
         {/* Credits Footer */}
         <footer style={styles.footer}>
           <a
             onMouseEnter={e => e.currentTarget.style.color = '#111827'}
-          onMouseLeave={e => e.currentTarget.style.color = '#6B7280'}
-          href="https://github.com/varadisthedev/"
+            onMouseLeave={e => e.currentTarget.style.color = '#6B7280'}
+            href="https://github.com/varadisthedev/"
             target="_blank"
             rel="noopener noreferrer"
             style={styles.creditsLink}
@@ -141,4 +157,3 @@ const styles = {
     transition: 'color 150ms ease',
   }
 };
-

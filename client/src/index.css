@@ -533,6 +533,18 @@ body {
   .main-content {
     padding: var(--spacing-md);
   }
+
+  /* On mobile, sidebar is a drawer — content takes full width */
+  .hidden-mobile-margin {
+    margin-left: 0 !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Sidebar collapses to drawer on tablet/mobile — content takes full width */
+  .hidden-mobile-margin {
+    margin-left: 0 !important;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
