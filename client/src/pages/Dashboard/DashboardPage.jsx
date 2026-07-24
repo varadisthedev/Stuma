@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { classesAPI, studentsAPI } from '../../services/api';
+import { classesAPI, studentsAPI, authAPI } from '../../services/api';
 import { formatTime } from '../../utils/helpers';
 import { DashboardSkeleton } from '../../components/ui/Skeleton';
 import VolunteerDashboard from './VolunteerDashboard';
@@ -44,6 +44,7 @@ export default function DashboardPage() {
   const [todayClasses, setTodayClasses] = useState([]);
   const [allClasses, setAllClasses] = useState([]);
   const [studentCount, setStudentCount] = useState(0);
+  const [volunteerCount, setVolunteerCount] = useState(0);
   const [nowTS, setNowTS] = useState(new Date());
 
   useEffect(() => {
@@ -59,14 +60,16 @@ export default function DashboardPage() {
     setIsLoading(true);
     setError('');
     try {
-      const [todayRes, allClassesRes, studentsRes] = await Promise.all([
+      const [todayRes, allClassesRes, studentsRes, volRes] = await Promise.all([
         classesAPI.getToday(),
         classesAPI.getAll(),
         studentsAPI.getAll(),
+        authAPI.getVolunteers(),
       ]);
       setTodayClasses(todayRes.classes || []);
       setAllClasses(allClassesRes.classes || []);
       setStudentCount(studentsRes.count || 0);
+      setVolunteerCount((volRes.volunteers || []).length);
     } catch (err) {
       setError('Failed to load dashboard data. Please refresh.');
     }
@@ -111,30 +114,24 @@ export default function DashboardPage() {
             {/* Stats Card */}
             <div style={{ ...card, padding: '24px' }}>
               <h3 style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#b91d20', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '20px' }}>Quick Stats</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: '0.875rem', color: '#6B7280', fontWeight: 500, marginBottom: '4px' }}>Students Enrolled</div>
-                    <div style={{ fontSize: '2rem', fontWeight: 800, color: '#111827', lineHeight: 1 }}>{studentCount}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                {[
+                  { label: 'Students Enrolled', value: studentCount, icon: 'school' },
+                  { label: 'Active Volunteers', value: volunteerCount, icon: 'group' },
+                  { label: 'Total Classes', value: allClasses.length, icon: 'book' },
+                  { label: "Today's Classes", value: todayClasses.length, icon: 'today' },
+                ].map((s, i, arr) => (
+                  <div key={s.label}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0' }}>
+                      <div>
+                        <div style={{ fontSize: '0.8125rem', color: '#6B7280', fontWeight: 500, marginBottom: '3px' }}>{s.label}</div>
+                        <div style={{ fontSize: '2rem', fontWeight: 800, color: '#111827', lineHeight: 1 }}>{s.value}</div>
+                      </div>
+                      <span className="material-symbols-outlined" style={{ fontSize: '26px', color: '#b91d20' }}>{s.icon}</span>
+                    </div>
+                    {i < arr.length - 1 && <div style={{ height: '1px', background: '#F3F4F6' }}></div>}
                   </div>
-                  <span className="material-symbols-outlined" style={{ fontSize: '28px', color: '#b91d20' }}>school</span>
-                </div>
-                <div style={{ height: '1px', background: '#E5E7EB' }}></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: '0.875rem', color: '#6B7280', fontWeight: 500, marginBottom: '4px' }}>Total Classes</div>
-                    <div style={{ fontSize: '2rem', fontWeight: 800, color: '#111827', lineHeight: 1 }}>{allClasses.length}</div>
-                  </div>
-                  <span className="material-symbols-outlined" style={{ fontSize: '28px', color: '#b91d20' }}>book</span>
-                </div>
-                <div style={{ height: '1px', background: '#E5E7EB' }}></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: '0.875rem', color: '#6B7280', fontWeight: 500, marginBottom: '4px' }}>Today's Classes</div>
-                    <div style={{ fontSize: '2rem', fontWeight: 800, color: '#111827', lineHeight: 1 }}>{todayClasses.length}</div>
-                  </div>
-                  <span className="material-symbols-outlined" style={{ fontSize: '28px', color: '#b91d20' }}>today</span>
-                </div>
+                ))}
               </div>
             </div>
 

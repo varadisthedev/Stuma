@@ -45,6 +45,10 @@ export default function VolunteersPage() {
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // Helper: parse "HH:MM" to minutes
+    const toMins = (t) => { if (!t) return 0; const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+
     volunteers.forEach(v => {
       const vClasses = classes.filter(c =>
         c.assignedVolunteer &&
@@ -58,10 +62,20 @@ export default function VolunteersPage() {
         }
         return false;
       }).sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : a.startTime.localeCompare(b.startTime));
+      const pastClasses = vClasses.filter(c => !upcomingClasses.includes(c) && c.date <= todayStr);
+
+      // Calculate total teaching hours from past classes
+      const totalMinutes = pastClasses.reduce((sum, c) => {
+        const dur = toMins(c.endTime) - toMins(c.startTime);
+        return sum + (dur > 0 ? dur : 0);
+      }, 0);
+      const totalHours = Math.round((totalMinutes / 60) * 10) / 10; // 1 decimal
+
       stats[v._id] = {
         totalClasses: vClasses.length,
         upcomingClasses,
-        pastClasses: vClasses.filter(c => !upcomingClasses.includes(c) && c.date <= todayStr),
+        pastClasses,
+        totalHours,
       };
     });
     return stats;
@@ -220,6 +234,10 @@ export default function VolunteersPage() {
                       <div style={{ fontWeight: 700, color: '#374151', fontSize: '1rem' }}>{vStats.pastClasses.length}</div>
                       <div style={{ fontSize: '0.6875rem', color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>done</div>
                     </div>
+                    <div style={{ flex: 1, background: '#F0FDF4', borderRadius: '8px', padding: '8px 12px', textAlign: 'center' }}>
+                      <div style={{ fontWeight: 700, color: '#059669', fontSize: '1rem' }}>{vStats.totalHours}h</div>
+                      <div style={{ fontSize: '0.6875rem', color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>hours</div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -251,14 +269,15 @@ export default function VolunteersPage() {
 
             <div style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
               {/* Stats row */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
                 {[
                   { label: 'Total', value: stats.totalClasses, color: '#374151' },
                   { label: 'Upcoming', value: stats.upcomingClasses.length, color: '#b91d20' },
                   { label: 'Completed', value: stats.pastClasses.length, color: '#059669' },
+                  { label: 'Hours', value: `${stats.totalHours}h`, color: '#7C3AED' },
                 ].map(s => (
-                  <div key={s.label} style={{ background: '#F9FAFB', borderRadius: '12px', padding: '16px', border: '1px solid #F3F4F6', textAlign: 'center' }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 800, color: s.color, lineHeight: 1, marginBottom: '6px' }}>{s.value}</div>
+                  <div key={s.label} style={{ background: '#F9FAFB', borderRadius: '12px', padding: '14px 12px', border: '1px solid #F3F4F6', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.625rem', fontWeight: 800, color: s.color, lineHeight: 1, marginBottom: '6px' }}>{s.value}</div>
                     <div style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
                   </div>
                 ))}

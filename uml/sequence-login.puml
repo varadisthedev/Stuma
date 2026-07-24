@@ -1,0 +1,35 @@
+@startuml
+
+actor User
+
+participant LoginPage
+participant AuthContext
+participant API
+participant Express
+participant AuthController
+database MongoDB
+
+User -> LoginPage : Enter credentials
+LoginPage -> AuthContext : login()
+
+AuthContext -> API : POST /login
+
+API -> Express : HTTP Request
+
+Express -> AuthController : login()
+
+AuthController -> MongoDB : findUser(email)
+
+MongoDB --> AuthController : User
+
+AuthController --> Express : JWT Token
+
+Express --> API : 200 OK
+
+API --> AuthContext : token,user
+
+AuthContext --> LoginPage : Success
+
+LoginPage --> User : Redirect Dashboard
+
+@enduml

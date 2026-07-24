@@ -1,0 +1,36 @@
+@startuml
+left to right direction
+
+actor Admin
+actor Volunteer
+
+rectangle STUMA {
+
+usecase "Login" as UC1
+usecase "Manage Students" as UC2
+usecase "Manage Volunteers" as UC3
+usecase "Manage Classes" as UC4
+usecase "Mark Attendance" as UC5
+usecase "Upload Class Photo" as UC6
+usecase "View Analytics" as UC7
+usecase "Send Message" as UC8
+usecase "Broadcast Alert" as UC9
+usecase "Update Profile" as UC10
+}
+
+Admin --> UC1
+Admin --> UC2
+Admin --> UC3
+Admin --> UC4
+Admin --> UC7
+Admin --> UC9
+Admin --> UC10
+
+Volunteer --> UC1
+Volunteer --> UC5
+Volunteer --> UC6
+Volunteer --> UC7
+Volunteer --> UC8
+Volunteer --> UC10
+
+@enduml

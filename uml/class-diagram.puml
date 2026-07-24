@@ -1,0 +1,66 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+class User {
+    +ObjectId id
+    +String name
+    +String email
+    +String role
+    +String phone
+    +String profilePicUrl
+}
+
+class Student {
+    +ObjectId id
+    +String name
+    +String rollNo
+    +String section
+    +String phone
+    +String parentPhone
+}
+
+class Class {
+    +ObjectId id
+    +String subject
+    +String date
+    +String day
+    +String startTime
+    +String endTime
+    +String youtubeLink
+}
+
+class Attendance {
+    +ObjectId id
+    +Date date
+    +String note
+}
+
+class ClassPhoto {
+    +ObjectId id
+    +String imageUrl
+    +Date takenAt
+}
+
+class Alert {
+    +ObjectId id
+    +String message
+    +String type
+}
+
+class Message {
+    +ObjectId id
+    +String text
+    +Boolean isRead
+}
+
+User "1" --> "0..*" Student : manages
+User "1" --> "0..*" Class : creates
+User "1" --> "0..*" Class : assignedVolunteer
+Class "1" *-- "0..*" Attendance
+Attendance "1" --> "*" Student
+Class "1" *-- "0..*" ClassPhoto
+User "1" --> "*" ClassPhoto
+User "1" --> "*" Alert
+User "1" --> "*" Message
+
+@enduml
